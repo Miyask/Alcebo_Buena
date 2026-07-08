@@ -341,7 +341,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     // Auto-detectar servidor local o en la nube de Vercel (con tu subdominio activo)
     const trackerUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:3001/api/presupuestos'
-      : 'https://alcebo-seguimiento-correos-1bt9utc85-miyasks-projects.vercel.app/api/presupuestos';
+      : 'https://alcebo-seguimiento-correos.vercel.app/api/presupuestos';
 
     try {
       const response = await fetch(trackerUrl, {
@@ -354,7 +354,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           email_cliente: clientEmailInput,
           fecha: q.date || new Date().toISOString().split('T')[0],
           documento: q.title || 'Presupuesto Técnico',
-          enlace_documento: `https://alcebo-seguimiento-correos-1bt9utc85-miyasks-projects.vercel.app/presupuestos/${q.id}`,
+          enlace_documento: `https://alcebo-seguimiento-correos.vercel.app/presupuestos/${q.id}`,
           monto: q.totalCost || 0
         })
       });
