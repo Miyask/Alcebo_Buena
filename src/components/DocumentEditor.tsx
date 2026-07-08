@@ -338,23 +338,31 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       return;
     }
     
-    // Auto-detectar servidor local o en la nube de Vercel
+    // Auto-detectar servidor local o en la nube de Vercel (con tu subdominio activo)
     const trackerUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:3001/api/presupuestos'
-      : 'https://alcebo-seguimiento-correos.vercel.app/api/presupuestos';
+      : 'https://alcebo-seguimiento-correos-1bt9utc85-miyasks-projects.vercel.app/api/presupuestos';
 
     try {
-      await fetch(trackerUrl, {
+      const response = await fetch(trackerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: q.id,
           cliente: q.clientName,
+          email: clientEmailInput,
           email_cliente: clientEmailInput,
-          enlace_documento: `https://alcebo-seguimiento-correos.vercel.app/presupuestos/${q.id}`
+          fecha: q.date || new Date().toISOString().split('T')[0],
+          documento: q.title || 'Presupuesto Técnico',
+          enlace_documento: `https://alcebo-seguimiento-correos-1bt9utc85-miyasks-projects.vercel.app/presupuestos/${q.id}`,
+          monto: q.totalCost || 0
         })
       });
-      console.log('✅ Presupuesto enviado al gestor de correos.');
+      if (response.ok) {
+        console.log('✅ Presupuesto enviado correctamente al gestor de correos.');
+      } else {
+        console.error('⚠️ Error al enviar:', await response.text());
+      }
     } catch (err: any) {
       console.error('Error al enviar presupuesto al gestor de correos:', err.message);
     }
