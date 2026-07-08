@@ -1,0 +1,6 @@
+{
+  "name": "Alcebo Technical Quotes",
+  "description": "Inspección técnica y gestión de presupuestos inteligente para control de aves.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

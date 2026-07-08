@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+scratch/
+noname
+PRESUP~1.DOC
+*-replaced*
+*-test*
+*-out*
+* (1).*

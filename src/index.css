@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Brand color overrides */
+  --color-primary: #006491;
+  --color-primary-container: #009fe3;
+  --color-on-primary-container: #00324b;
+  --color-surface-container-low: #f3f3f4;
+  --color-surface-container-highest: #e2e2e3;
+  --color-outline-variant: #bec8d2;
+}
