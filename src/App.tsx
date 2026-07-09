@@ -139,25 +139,69 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex antialiased">
+      {/* Sidebar navigation */}
+      <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      
       {/* Main Workspace Frame */}
-      <div className="flex-1 flex flex-col min-h-screen w-full">
+      <div className="flex-1 flex flex-col min-h-screen w-full md:pl-64">
+        {/* Top App Bar */}
+        <TopAppBar currentTab={currentTab} />
+        
         {/* Content viewport area */}
         <main className="flex-1 w-full pt-6 pb-10 px-4 md:px-8 bg-slate-50 overflow-x-hidden">
           <div className="max-w-7xl mx-auto w-full">
-            <DocumentEditor
-              quote={draftQuote}
-              onSaveQuote={(updatedQuote) => {
-                setDraftQuote(updatedQuote);
-              }}
-              onCancel={() => {
-                if (confirm('¿Deseas vaciar los datos del presupuesto actual para crear uno nuevo?')) {
-                  setDraftQuote(getNewBlankQuote());
-                }
-              }}
-              templates={templates}
-              rules={rules}
-              config={config}
-            />
+            {currentTab === 'dashboard' && (
+              <DashboardView onAddQuote={handleAddQuote} config={config} />
+            )}
+            
+            {currentTab === 'presupuestos' && (
+              <PresupuestosView
+                quotes={quotes}
+                onDeleteQuote={handleDeleteQuote}
+                onEditQuote={(q) => {
+                  setDraftQuote(q);
+                  setCurrentTab('editor');
+                }}
+              />
+            )}
+            
+            {currentTab === 'editor' && (
+              <DocumentEditor
+                quote={draftQuote}
+                onSaveQuote={(updatedQuote) => {
+                  handleUpdateQuote(updatedQuote);
+                  setDraftQuote(updatedQuote);
+                }}
+                onCancel={() => {
+                  setCurrentTab('presupuestos');
+                }}
+                templates={templates}
+                rules={rules}
+                config={config}
+              />
+            )}
+            
+            {currentTab === 'settings' && (
+              <SettingsView config={config} onSaveConfig={handleSaveConfig} />
+            )}
+            
+            {currentTab === 'plantillas' && (
+              <PlantillasView
+                templates={templates}
+                onAddTemplate={handleAddTemplate}
+                onUpdateTemplate={handleUpdateTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
+              />
+            )}
+            
+            {currentTab === 'condicionales' && (
+              <TextosCondicionalesView
+                rules={rules}
+                onAddRule={handleAddRule}
+                onUpdateRule={handleUpdateRule}
+                onDeleteRule={handleDeleteRule}
+              />
+            )}
           </div>
         </main>
       </div>
