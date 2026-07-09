@@ -103,7 +103,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           case 7: return `<w:t>${month}</w:t>`;
           case 8: return `<w:t>${year}</w:t>`;
           case 9: return `<w:t>${clientAddress}</w:t>`;
-          case 10: return `<w:t>${plaga}</w:t>`;
+          case 10: {
+            const pluralMap: Record<string, string> = {
+              'Palomas': 'palomas',
+              'Gorriones': 'gorriones',
+              'Cigüeñas': 'cigüeñas',
+              'Gaviotas': 'gaviotas',
+              'Cotorras': 'cotorras',
+              'Golondrinas': 'golondrinas',
+              'Urracas': 'urracas'
+            };
+            const pluralBird = pluralMap[plaga] || plaga.toLowerCase();
+            
+            const searchStr = '<w:t xml:space="preserve">palomas en </w:t>';
+            const nextPalomas = docXml.indexOf(searchStr);
+            if (nextPalomas !== -1) {
+              docXml = docXml.substring(0, nextPalomas) + '<w:t xml:space="preserve"> en </w:t>' + docXml.substring(nextPalomas + searchStr.length);
+            }
+            return `<w:t>${pluralBird}</w:t>`;
+          }
           case 11: return `<w:t>${zonasAfectadas}</w:t>`;
           case 12: {
             // Multi-paragraph technical description
@@ -119,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           case 16: return `<w:t>${zona2}</w:t>`;
           case 17: return `<w:t>${zona3}</w:t>`;
           case 18: return `<w:t>${telefono}</w:t>`;
-          case 19: return `<w:t>280${postalCodePrefix}</w:t>`;
+          case 19: return `<w:t>${postalCodePrefix}</w:t>`;
           case 20: return `<w:t>${refCode}</w:t>`;
           case 21: return `<w:t>................ ${price1}</w:t>`;
           case 22: return `<w:t>${price3}</w:t>`;

@@ -105,3 +105,8 @@
     height: 0 !important;
   }
 }
+
+/* Specific centering for cover page elements */
+.editor-content-area .cover-page-wrapper p {
+  text-align: center !important;
+}

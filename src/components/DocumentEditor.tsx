@@ -143,7 +143,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     if (editorRef.current) {
       const desPlagaEl = editorRef.current.querySelector('.des-plaga-block');
       if (desPlagaEl) {
-        const activeRule = rules.find(r => r.birdType === selectedBird && r.isActive);
+        const allRules = (rules && rules.length > 0) ? rules : DEFAULT_CONDITIONAL_TEXTS;
+        const activeRule = allRules.find(r => r.birdType?.toLowerCase() === selectedBird.toLowerCase());
         const plagaDescription = activeRule ? activeRule.textToInclude : '';
         desPlagaEl.innerHTML = plagaDescription ? `<p>${plagaDescription}</p>` : '';
       }
@@ -226,7 +227,41 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   // Initialize document content on mount
   useEffect(() => {
     if (quote.documentHtml && quote.documentHtml.length > 50) {
-      setEditorHtml(quote.documentHtml);
+      let docHtml = quote.documentHtml;
+      
+      // Patch old drafts that don't have .des-plaga-block
+      if (!docHtml.includes('des-plaga-block')) {
+        docHtml = docHtml.replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
+          'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block"></div>');
+      }
+      
+      // Patch old drafts that don't have .sistemas-block
+      if (!docHtml.includes('sistemas-block')) {
+        const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
+        if (systemBlockRegex.test(docHtml)) {
+          docHtml = docHtml.replace(systemBlockRegex, '<div class="sistemas-block"></div>');
+        } else {
+          docHtml = docHtml.replace(/<p><strong>6\.- PRESUPUESTO/gi, '<div class="sistemas-block"></div><p><strong>6.- PRESUPUESTO');
+        }
+      }
+
+      // Patch old drafts that don't have cover-page-wrapper
+      if (!docHtml.includes('cover-page-wrapper')) {
+        docHtml = docHtml
+          .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+          .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
+      }
+
+      // Patch old drafts that don't have page-break class
+      if (!docHtml.includes('page-break')) {
+        docHtml = docHtml
+          .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
+          .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
+          .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
+          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<hr class="page-break" /><p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+      }
+
+      setEditorHtml(docHtml);
       // Attempt to extract existing values to sync the inputs
       setTimeout(() => {
         if (editorRef.current) {
@@ -257,7 +292,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const z1 = selectedSystem === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
       const z2 = selectedSystem === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
       const z3 = selectedSystem === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
-
       const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
       const templateWithPlaceholders = WORD_TEMPLATE_HTML
         .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
@@ -274,6 +308,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
         .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
         .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+        .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
         .replace(/\[INTRO_TECNICA\]/g, quote.text ? `<span class="transcription-field">${quote.text}</span>` : `<span class="transcription-field">las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales</span>`)
@@ -289,7 +324,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, '')
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '')
-        .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
+        .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+        .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
@@ -679,6 +715,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
             .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
             .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+            .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
             .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${data.text}</span>`)
@@ -694,7 +731,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
             .replace(/\[DESCRIPCION_PLAGA\]/g, '')
             .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '')
-            .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
+            .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+            .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
             .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
             .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
             .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
