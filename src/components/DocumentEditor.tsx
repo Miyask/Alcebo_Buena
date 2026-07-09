@@ -644,13 +644,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       {/* Editor Header Panel with Main controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={onCancel}
-            className="p-2 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 border border-slate-200"
-            title="Volver"
-          >
-            <span className="material-symbols-outlined text-lg leading-none block">arrow_back</span>
-          </button>
+            <button 
+              onClick={onCancel}
+              className="p-2 px-3 rounded-xl hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer text-rose-600 border border-rose-200 flex items-center gap-1 text-xs font-bold"
+              title="Empezar un nuevo presupuesto desde cero"
+            >
+              <span className="material-symbols-outlined text-base">delete</span>
+              Nuevo Presupuesto
+            </button>
           <div>
             <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
               <span className="material-symbols-outlined text-[#009fe3] text-2xl">description</span>
@@ -673,32 +674,48 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           </div>
         </div>
 
-        {/* Action controls */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={handleSaveAndSync}
-            className="flex-1 sm:flex-initial bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-sm">save</span>
-            Guardar Cambios
-          </button>
-          
-          <button
-            onClick={handleExportDocx}
-            className="flex-1 sm:flex-initial bg-[#009FE3] hover:bg-[#006491] text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#009fe3]/15 cursor-pointer active:scale-95"
-          >
-            <span className="material-symbols-outlined text-sm">download</span>
-            Descargar Word (.docx)
-          </button>
+          {/* Action controls */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleVideoUpload}
+              accept="audio/*,video/*"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 sm:flex-initial bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+              title="Subir vídeo o audio de inspección para auto-rellenar la plantilla"
+            >
+              <span className="material-symbols-outlined text-sm">cloud_upload</span>
+              {isProcessingVideo ? `Procesando... ${videoProgress}%` : 'Subir Vídeo/Audio'}
+            </button>
 
-          <button
-            onClick={() => window.print()}
-            className="flex-1 sm:flex-initial bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-          >
-            <span className="material-symbols-outlined text-sm">print</span>
-            Imprimir
-          </button>
-        </div>
+            <button
+              onClick={handleSaveAndSync}
+              className="flex-1 sm:flex-initial bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm">save</span>
+              Guardar Cambios
+            </button>
+            
+            <button
+              onClick={handleExportDocx}
+              className="flex-1 sm:flex-initial bg-[#009FE3] hover:bg-[#006491] text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#009fe3]/15 cursor-pointer active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">download</span>
+              Descargar Word (.docx)
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="flex-1 sm:flex-initial bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">print</span>
+              Imprimir
+            </button>
+          </div>
       </div>
 
       {/* Editor Formatting Toolbar */}
@@ -751,163 +768,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         </div>
       </div>
 
-      {/* Voice Intelligence & Transcription Top Banner */}
-      <div className="bg-[#009FE3]/5 border border-[#009FE3]/25 rounded-3xl p-6 shadow-xs">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          
-          {/* Column 1: Manual Data Entry */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-4">
-            <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                <span className="material-symbols-outlined text-[#009FE3] text-lg">edit_note</span>
-                Parámetros del Presupuesto
-              </h3>
-              <div className="grid grid-cols-1 gap-3 mt-3">
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Nombre del Cliente</label>
-                  <input 
-                    type="text" 
-                    value={clientNameInput} 
-                    onChange={(e) => handleClientNameChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
-                    placeholder="Ej: COMUNIDAD DE VECINOS"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Dirección de Obra</label>
-                  <input 
-                    type="text" 
-                    value={clientAddressInput} 
-                    onChange={(e) => handleClientAddressChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
-                    placeholder="Ej: Calle Principal s/n"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Correo Electrónico del Cliente</label>
-                  <input 
-                    type="email" 
-                    value={clientEmailInput} 
-                    onChange={(e) => setClientEmailInput(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
-                    placeholder="Ej: correo-cliente@ejemplo.com"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Precio L1 (€)</label>
-                    <input 
-                      type="text" 
-                      value={price1} 
-                      onChange={(e) => handlePrice1Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Precio L2 (€)</label>
-                    <input 
-                      type="text" 
-                      value={price2} 
-                      onChange={(e) => handlePrice2Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Precio L3 (€)</label>
-                    <input 
-                      type="text" 
-                      value={price3} 
-                      onChange={(e) => handlePrice3Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Column 2: Uploader */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
-            <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
-                <span className="material-symbols-outlined text-[#009FE3] text-lg">mic_double</span>
-                Auto-relleno por Voz
-              </h3>
-            </div>
-
-            {isProcessingVideo ? (
-              <div className="space-y-3 text-center py-4 bg-slate-900 text-white rounded-xl p-4 border border-slate-800 shadow-lg flex-grow flex flex-col justify-center">
-                <div className="w-8 h-8 rounded-full border-4 border-sky-400 border-t-transparent animate-spin mx-auto mb-1"></div>
-                <p className="text-[11px] font-black tracking-tight">Procesando audio de voz...</p>
-                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden p-[1px]">
-                  <div className="bg-[#009fe3] h-full transition-all duration-300" style={{ width: `${videoProgress}%` }}></div>
-                </div>
-                <span className="text-[9px] text-sky-400 font-mono font-bold">{videoProgress}%</span>
-              </div>
-            ) : (
-              <div className="flex-grow flex flex-col justify-center">
-                <input
-                  type="file"
-                  id="video-fill-input-editor-top"
-                  onChange={handleVideoUpload}
-                  accept="audio/*,video/*"
-                  className="hidden"
-                />
-                <label
-                  htmlFor="video-fill-input-editor-top"
-                  className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-[#009FE3] rounded-xl p-6 text-center bg-slate-50 hover:bg-[#009FE3]/5 transition-all cursor-pointer group shadow-xs h-full"
-                >
-                  <span className="material-symbols-outlined text-[32px] text-slate-400 group-hover:text-[#009FE3] mb-1 block transition-transform group-hover:scale-110">cloud_upload</span>
-                  <p className="text-xs font-black text-slate-700">Sube el audio o vídeo de obra</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5 leading-normal font-semibold">Extraerá textos y rellenará campos</p>
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* Column 3: Transcription or Guide */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
-            {customText ? (
-              <div className="flex flex-col h-full justify-between space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[#009FE3] text-base">description</span>
-                    Texto Transcrito
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(customText);
-                      showToast('¡Transcripción copiada al portapapeles!');
-                    }}
-                    className="text-[10px] font-black text-[#009FE3] hover:text-[#006491] flex items-center gap-1 cursor-pointer bg-[#009FE3]/10 hover:bg-[#009FE3]/15 px-2 py-1 rounded-md transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xs">content_copy</span>
-                    Copiar
-                  </button>
-                </div>
-                
-                <div className="flex-grow bg-slate-50 p-3 rounded-lg border border-slate-150 max-h-[120px] overflow-y-auto select-text">
-                  <p className="text-[11px] text-slate-600 font-semibold leading-relaxed whitespace-pre-wrap">
-                    {customText}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col h-full justify-center text-center space-y-2">
-                <span className="material-symbols-outlined text-[36px] text-slate-300 block">info</span>
-                <h4 className="text-xs font-black text-slate-700">Instrucciones del Relleno</h4>
-                <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
-                  Modifica los textos e importes en el formulario izquierdo y mira cómo se actualiza el documento de Word en tiempo real. O sube un vídeo para rellenarlo automáticamente.
-                </p>
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
-
       {/* Main Workspace layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
         {/* Left Side: WYSIWYG contenteditable document container (Centered A4 paper wrapper) */}
@@ -943,8 +803,82 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           </div>
         </div>
 
-        {/* Right Side: Quick tips panel */}
-        <div className="w-full lg:w-[280px] shrink-0 space-y-6">
+        {/* Right Side: Configuration & Parameters panel */}
+        <div className="w-full lg:w-[320px] shrink-0 space-y-6">
+          {/* Client Details Form */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <span className="material-symbols-outlined text-[#009FE3] text-lg">edit_note</span>
+              Datos del Cliente
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Nombre del Cliente</label>
+                <input 
+                  type="text" 
+                  value={clientNameInput} 
+                  onChange={(e) => handleClientNameChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
+                  placeholder="Ej: COMUNIDAD DE VECINOS"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Dirección de Obra</label>
+                <input 
+                  type="text" 
+                  value={clientAddressInput} 
+                  onChange={(e) => handleClientAddressChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
+                  placeholder="Ej: Calle Principal s/n"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Email del Cliente</label>
+                <input 
+                  type="email" 
+                  value={clientEmailInput} 
+                  onChange={(e) => setClientEmailInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
+                  placeholder="Ej: correo-cliente@ejemplo.com"
+                />
+              </div>
+              
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Precios de Opciones (€)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 1</label>
+                    <input 
+                      type="text" 
+                      value={price1} 
+                      onChange={(e) => handlePrice1Change(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 2</label>
+                    <input 
+                      type="text" 
+                      value={price2} 
+                      onChange={(e) => handlePrice2Change(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 3</label>
+                    <input 
+                      type="text" 
+                      value={price3} 
+                      onChange={(e) => handlePrice3Change(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick tips panel */}
           <div className="bg-slate-100 border border-slate-200/80 rounded-2xl p-5 text-xs text-slate-600 leading-relaxed">
             <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-3 text-sm">
               <span className="material-symbols-outlined text-[#009FE3] text-xl">tips_and_updates</span>

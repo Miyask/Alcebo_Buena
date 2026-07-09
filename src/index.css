@@ -11,3 +11,63 @@
   --color-surface-container-highest: #e2e2e3;
   --color-outline-variant: #bec8d2;
 }
+
+/* Document Editor High Fidelity Styles (Act like MS Word / Google Docs) */
+.editor-content-area {
+  outline: none;
+}
+
+.editor-content-area p {
+  margin-top: 0 !important;
+  margin-bottom: 12pt !important;
+  line-height: 1.6 !important;
+  text-align: justify !important;
+  font-size: 11pt !important;
+  color: #333333 !important;
+}
+
+.editor-content-area h1,
+.editor-content-area h2,
+.editor-content-area h3,
+.editor-content-area h4 {
+  color: #009FE3 !important;
+  font-weight: bold !important;
+  margin-top: 18pt !important;
+  margin-bottom: 8pt !important;
+}
+
+.editor-content-area h1 { font-size: 16pt !important; }
+.editor-content-area h2 { font-size: 14pt !important; }
+.editor-content-area h3 { font-size: 12.5pt !important; }
+
+.editor-content-area table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin-top: 14pt !important;
+  margin-bottom: 14pt !important;
+}
+
+.editor-content-area th,
+.editor-content-area td {
+  border: 1px solid #bec8d2 !important;
+  padding: 8px !important;
+  font-size: 10.5pt !important;
+}
+
+.editor-content-area th {
+  background-color: #009FE3 !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
+}
+
+.editor-content-area ul {
+  list-style-type: disc !important;
+  margin-left: 24px !important;
+  margin-bottom: 12px !important;
+}
+
+.editor-content-area ol {
+  list-style-type: decimal !important;
+  margin-left: 24px !important;
+  margin-bottom: 12px !important;
+}
