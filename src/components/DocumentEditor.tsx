@@ -28,8 +28,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [editingImageUrl, setEditingImageUrl] = useState<string>('');
   
   // Selectors/parameters state for video extraction fallback bindings
-  const [selectedBird, setSelectedBird] = useState<string>(quote.birds[0] || 'Palomas');
-  const [selectedSystem, setSelectedSystem] = useState<string>(quote.systems[0] || 'Red');
+  const [selectedBird, setSelectedBird] = useState<string>((quote.birds && quote.birds[0]) || 'Palomas');
+  const [selectedSystem, setSelectedSystem] = useState<string>((quote.systems && quote.systems[0]) || 'Red');
   const [meters, setMeters] = useState<number>(quote.estimationLineal || 15);
   
   const [isProcessingVideo, setIsProcessingVideo] = useState<boolean>(false);
@@ -42,6 +42,12 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [clientEmailInput, setClientEmailInput] = useState<string>(quote.clientEmail || '');
 
   useEffect(() => {
+    setSelectedBird((quote.birds && quote.birds[0]) || 'Palomas');
+    setSelectedSystem((quote.systems && quote.systems[0]) || 'Red');
+    setMeters(quote.estimationLineal || 15);
+    setCustomText(quote.text || '');
+    setClientNameInput(quote.clientName || 'COMUNIDAD DE VECINOS');
+    setClientAddressInput(quote.clientAddress || 'Calle Principal s/n');
     setClientEmailInput(quote.clientEmail || '');
   }, [quote]);
   const [price1, setPrice1] = useState<string>('300.00');
@@ -309,7 +315,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     reader.readAsDataURL(file);
     reader.onload = () => {
       insertImageAtCursor(reader.result as string, file.name);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageUploadRef.current) imageUploadRef.current.value = '';
     };
   };
 
@@ -421,63 +427,26 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         setVideoProgress(40);
 
         try {
-          let isGroq = true;
-          let finalApiKey = config?.groqApiKey || import.meta.env.VITE_GROQ_API_KEY || '';
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              file: base64Uri,
+              name: file.name,
+              apiKey: config?.groqApiKey,
+            }),
+          });
 
-          if (finalApiKey.trim().startsWith('gsk_')) {
-            isGroq = true;
-          } else if (finalApiKey.trim().startsWith('sk-or-v1-')) {
-            isGroq = false;
+          setVideoProgress(85);
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || errData.details || 'Error al transcribir el archivo.');
           }
 
-          let data;
-          if (isGroq) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('model', 'whisper-large-v3');
-            formData.append('language', 'es');
-
-            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${finalApiKey.trim()}`
-              },
-              body: formData
-            });
-
-            setVideoProgress(85);
-
-            if (!response.ok) {
-              const errText = await response.text();
-              throw new Error(`Fallo de la API de Groq: ${response.statusText}. ${errText}`);
-            }
-            data = await response.json();
-          } else {
-            const base64Data = base64Uri.split(',')[1];
-            const ext = file.name.split('.').pop()?.toLowerCase() || 'wav';
-            const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${finalApiKey.trim()}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: 'openai/whisper-1',
-                input_audio: {
-                  data: base64Data,
-                  format: ext
-                }
-              })
-            });
-
-            setVideoProgress(85);
-
-            if (!response.ok) {
-              const errText = await response.text();
-              throw new Error(`Fallo de la API de OpenRouter: ${response.statusText}. ${errText}`);
-            }
-            data = await response.json();
-          }
+          const data = await response.json();
 
           setVideoProgress(100);
           
