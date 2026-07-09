@@ -418,29 +418,67 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64Uri = reader.result as string;
-        setVideoProgress(50);
+        setVideoProgress(40);
 
         try {
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              file: base64Uri,
-              name: file.name,
-              apiKey: config?.groqApiKey,
-            }),
-          });
+          let isGroq = true;
+          let finalApiKey = config?.groqApiKey || import.meta.env.VITE_GROQ_API_KEY || '';
 
-          setVideoProgress(85);
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Error al transcribir el archivo.');
+          if (finalApiKey.trim().startsWith('gsk_')) {
+            isGroq = true;
+          } else if (finalApiKey.trim().startsWith('sk-or-v1-')) {
+            isGroq = false;
           }
 
-          const data = await response.json();
+          let data;
+          if (isGroq) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('model', 'whisper-large-v3');
+            formData.append('language', 'es');
+
+            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${finalApiKey.trim()}`
+              },
+              body: formData
+            });
+
+            setVideoProgress(85);
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Fallo de la API de Groq: ${response.statusText}. ${errText}`);
+            }
+            data = await response.json();
+          } else {
+            const base64Data = base64Uri.split(',')[1];
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'wav';
+            const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${finalApiKey.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'openai/whisper-1',
+                input_audio: {
+                  data: base64Data,
+                  format: ext
+                }
+              })
+            });
+
+            setVideoProgress(85);
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Fallo de la API de OpenRouter: ${response.statusText}. ${errText}`);
+            }
+            data = await response.json();
+          }
+
           setVideoProgress(100);
           
           // Auto-fill extraction logic
@@ -902,9 +940,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       </div>
 
       {/* Main Workspace layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
-        {/* Left Side: WYSIWYG contenteditable document container (3/4 cols) */}
-        <div className="xl:col-span-3 print-area">
+      <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
+        {/* Left Side: WYSIWYG contenteditable document container (Centered A4 paper wrapper) */}
+        <div className="flex-1 w-full max-w-[850px] print-area">
           <div className="bg-white border border-slate-200 shadow-2xl hover:shadow-3xl transition-shadow duration-350 rounded-2xl overflow-hidden p-8 sm:p-14 min-h-[1200px] flex flex-col justify-between font-sans relative">
             
             {/* Watermark Logo Container (Shows only in Editor view) */}
@@ -936,8 +974,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           </div>
         </div>
 
-        {/* Right Side: Quick tips panel (1/4 cols) */}
-        <div className="xl:col-span-1 space-y-6">
+        {/* Right Side: Quick tips panel */}
+        <div className="w-full lg:w-[280px] shrink-0 space-y-6">
           <div className="bg-slate-100 border border-slate-200/80 rounded-2xl p-5 text-xs text-slate-600 leading-relaxed">
             <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-3 text-sm">
               <span className="material-symbols-outlined text-[#009FE3] text-xl">tips_and_updates</span>

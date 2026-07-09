@@ -159,7 +159,7 @@ export default function App() {
         
         {/* Content viewport area */}
         <main className="flex-1 w-full pt-6 pb-10 px-4 md:px-8 bg-slate-50 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto w-full">
+          <div className={`${currentTab === 'editor' ? 'max-w-none' : 'max-w-7xl'} mx-auto w-full`}>
             {currentTab === 'dashboard' && (
               <DashboardView onAddQuote={handleAddQuote} config={config} />
             )}

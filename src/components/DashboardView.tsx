@@ -106,29 +106,67 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64Uri = reader.result as string;
-        setProgress(50);
+        setProgress(40);
 
         try {
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              file: base64Uri,
-              name: file.name,
-              apiKey: config?.groqApiKey,
-            }),
-          });
+          let isGroq = true;
+          let finalApiKey = config?.groqApiKey || import.meta.env.VITE_GROQ_API_KEY || '';
 
-          setProgress(85);
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Error al transcribir el archivo.');
+          if (finalApiKey.trim().startsWith('gsk_')) {
+            isGroq = true;
+          } else if (finalApiKey.trim().startsWith('sk-or-v1-')) {
+            isGroq = false;
           }
 
-          const data = await response.json();
+          let data;
+          if (isGroq) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('model', 'whisper-large-v3');
+            formData.append('language', 'es');
+
+            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${finalApiKey.trim()}`
+              },
+              body: formData
+            });
+
+            setProgress(85);
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Fallo de la API de Groq: ${response.statusText}. ${errText}`);
+            }
+            data = await response.json();
+          } else {
+            const base64Data = base64Uri.split(',')[1];
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'wav';
+            const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${finalApiKey.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'openai/whisper-1',
+                input_audio: {
+                  data: base64Data,
+                  format: ext
+                }
+              })
+            });
+
+            setProgress(85);
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Fallo de la API de OpenRouter: ${response.statusText}. ${errText}`);
+            }
+            data = await response.json();
+          }
+
           setProgress(100);
           setTimeout(() => {
             setIsProcessing(false);
