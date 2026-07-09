@@ -51,7 +51,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     title: 'Exclusión de Palomas (Columba livia)',
     birdType: 'Palomas',
     condition: 'Ave = Palomas',
-    textToInclude: 'La Paloma Bravía (Columba livia) es una especie sedentaria altamente proliferativa en entornos urbanos. Su presencia conlleva riesgos sanitarios al ser vectores de patógenos y ácaros, así como daños estructurales graves derivados de la acumulación de guano, cuya acidez corroe piedra y metales. Se prescribe la limpieza y desinfección previa de las zonas de anidación, seguido de la instalación de redes de exclusión o varillas disuasorias para asegurar un sellado permanente.',
+    textToInclude: 'La paloma bravía (Columba livia) es la especie de paloma más extendida en el mundo y el ancestro de las variantes domésticas. Mide 33 cm, con una envergadura de 60-70 cm y un peso de 240-380 g. Su plumaje es gris con bandas negras en las alas y reflejos iridiscentes en la cabeza. No es migratoria y su canto es un arrullo corto y fuerte. Se reproduce todo el año, con picos en primavera y verano. Incuba 1-2 huevos durante 16-19 días, y los pichones vuelan a los 35 días. Habita en zonas rocosas, pero su adaptación la ha llevado a entornos urbanos, anidando en edificios, monumentos, parques y almacenes, donde encuentra fácil acceso a alimento. Esta especie es escasa en ambientes naturales, ha logrado establecerse con éxito en ciudades de todo el mundo, donde frecuentemente se le considera una plaga.',
     isActive: true
   },
   {
@@ -59,7 +59,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     title: 'Exclusión de Gaviotas (Laridae)',
     birdType: 'Gaviotas',
     condition: 'Ave = Gaviotas',
-    textToInclude: 'Las Gaviotas (Laridae) ejercen una presión de posado y anidación muy alta en cubiertas planas. Son aves corpulentas y territoriales que pueden mostrarse agresivas durante la época de cría. Su deyección es de gran volumen y obstruye canalones de pluviales. Se prescribe el uso de redes reforzadas con tensores especiales o sistemas de cables tensados gruesos para evitar su nidificación sobre azoteas.',
+    textToInclude: 'Las gaviotas (Laridae) son en general pájaros grandes, en su mayoría de plumaje gris o blanco, a menudo con señales negras en la cabeza o las alas. Las gaviotas adultas tienen la cabeza, el cuello, la cola y la parte inferior del cuerpo de un color blanco puro, mientras que la espalda y el dorso de las alas son de color gris pálido. Son típicamente costeras pero han colonizado poblaciones del interior siguiendo los ríos y atraídas por los vertederos. Su variada alimentación incluye todo tipo de animales marinos, pequeños pájaros, ratas, huevos y desperdicios del hombre. Se emparejan para toda la vida y suelen anidar cada año en el mismo lugar de forma muy gregaria, mostrando gran agresividad protectora.',
     isActive: true
   },
   {
@@ -83,7 +83,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     title: 'Exclusión de Gorriones (Passer domesticus)',
     birdType: 'Gorriones',
     condition: 'Ave = Gorriones',
-    textToInclude: 'El Gorrión común (Passer domesticus) anida típicamente en huecos pequeños de tejas y fachadas. Provoca taponamiento de salidas de ventilación y acumulación de materiales altamente inflamables. Se prescribe el sellado perimetral de aleros mediante mallas electrosoldadas de luz fina o red de 19mm para bloquear el acceso de especímenes pequeños.',
+    textToInclude: 'El gorrión común (Passer domesticus) es un ave pequeña, adaptada al hábitat urbano y muy acostumbrada a vivir cerca del ser humano, hasta el punto de ser la más frecuente y conocida. Pesa alrededor de 30 g y mide de 14 a 16 cm de longitud. El gorrión doméstico es de conformación robusta y patas cortas. Su pico es grueso, fuerte y cónico. El plumaje de la espalda es pardo, con manchas negras y rojizas. Anidan en grietas de edificios, debajo de tejas o en troncos de coníferas. Los huevos son puestos en cualquier momento durante la primavera, pudiendo haber hasta 4 puestas, y en cada puesta 4 o 5 huevos. A los 10 días los polluelos rompen el cascarón, y a los 14 ya tienen plumas.',
     isActive: true
   },
   {
@@ -91,7 +91,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     title: 'Control de Cotorras (Myiopsitta monachus)',
     birdType: 'Cotorras',
     condition: 'Ave = Cotorras',
-    textToInclude: 'La Cotorra Argentina y cotorra de Kramer son consideradas especies exóticas invasoras. Construyen grandes nidos coloniales de ramas que pueden llegar a pesar más de 100 kg, comprometiendo la seguridad de ramas y estructuras de soporte. Se prescribe la retirada autorizada de nidos en periodo invernal y control poblacional mediante trampeo selectivo.',
+    textToInclude: 'Las cotorras en nuestro país corresponden principalmente a la Cotorra de Kramer (Psittacula krameri) y la Cotorra Argentina o Monje (Myiopsitta monachus), consideradas especies exóticas invasoras. La de Kramer es arborícola, de color verde-amarillento, cola muy larga y pico rojo ganchudo. La Argentina construye nidos coloniales comunales de ramas adosados que pueden llegar a pesar más de 100 kg, comprometiendo la seguridad estructural de árboles y postes. Se alimentan de gran variedad de frutos y semillas, alterando los ecosistemas locales y desplazando a las especies autóctonas.',
     isActive: true
   },
   {
@@ -99,7 +99,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     title: 'Control de Cigüeñas (Ciconia ciconia)',
     birdType: 'Cigüeñas',
     condition: 'Ave = Cigüeñas',
-    textToInclude: 'La Cigüeña Blanca (Ciconia ciconia) es un ave protegida de gran tamaño que reutiliza sus nidos año tras año en chimeneas y tejados, acumulando ramas hasta provocar sobrepeso estructural y atasco de humos. Toda actuación requiere autorización administrativa previa para el desmontaje del nido fuera del periodo de cría, seguido de la instalación perimetral de dispositivos mecánicos disuasorios (pirámides o paraguas anti-cigüeña).',
+    textToInclude: 'La cigüeña blanca (Ciconia ciconia) es una especie de ave Ciconiiforme de gran tamaño. Su plumaje es mayoritariamente blanco con negro en las alas. Los adultos adquieren un color rojo en patas y pico. Mide de 100 a 115 cm desde la punta del pico hasta el final de la cola, con una envergadura alar de 155 a 215 cm. Es un ave migratoria de grandes distancias que se empareja para toda la vida. Construyen nidos de gran tamaño que reutilizan y amplían año tras año, lo que puede causar graves problemas de sobrepeso en chimeneas y cubiertas. Diversos cambios agrícolas hicieron declinar su población en los siglos XIX y XX, por lo que se la considera un ave protegida.',
     isActive: true
   }
 ];

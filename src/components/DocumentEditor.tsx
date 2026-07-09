@@ -5,6 +5,16 @@ import ImageAnnotator from './ImageAnnotator';
 import { WORD_TEMPLATE_HTML } from '../data/wordTemplateHtml';
 import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 
+// Extract base64 images from template HTML on module load
+let IMAGE_RED_BASE64 = '';
+let IMAGE_VARILLAS_BASE64 = '';
+
+const matchRed = WORD_TEMPLATE_HTML.match(/RED NETWORK ANTI-PALOMAS[\s\S]*?<img src="data:image\/jpeg;base64,([^"]+)"/i);
+if (matchRed && matchRed[1]) IMAGE_RED_BASE64 = 'data:image/jpeg;base64,' + matchRed[1];
+
+const matchVarillas = WORD_TEMPLATE_HTML.match(/VARILLAS AVIPOINT[\s\S]*?<img src="data:image\/jpeg;base64,([^"]+)"/i);
+if (matchVarillas && matchVarillas[1]) IMAGE_VARILLAS_BASE64 = 'data:image/jpeg;base64,' + matchVarillas[1];
+
 interface DocumentEditorProps {
   quote: Quote;
   onSaveQuote: (updatedQuote: Quote) => void;
@@ -29,7 +39,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   
   // Selectors/parameters state for video extraction fallback bindings
   const [selectedBird, setSelectedBird] = useState<string>((quote.birds && quote.birds[0]) || 'Palomas');
-  const [selectedSystem, setSelectedSystem] = useState<string>((quote.systems && quote.systems[0]) || 'Red');
+  const [selectedSystems, setSelectedSystems] = useState<string[]>(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
+  const selectedSystem = selectedSystems[0] || 'Red';
   const [meters, setMeters] = useState<number>(quote.estimationLineal || 15);
   
   const [isProcessingVideo, setIsProcessingVideo] = useState<boolean>(false);
@@ -73,13 +84,96 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
   useEffect(() => {
     setSelectedBird((quote.birds && quote.birds[0]) || 'Palomas');
-    setSelectedSystem((quote.systems && quote.systems[0]) || 'Red');
+    setSelectedSystems(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
     setMeters(quote.estimationLineal || 15);
     setCustomText(quote.text || '');
     setClientNameInput(quote.clientName || 'COMUNIDAD DE VECINOS');
     setClientAddressInput(quote.clientAddress || 'Calle Principal s/n');
     setClientEmailInput(quote.clientEmail || '');
   }, [quote]);
+  const getSystemsHtml = (activeSystems: string[]): string => {
+    let html = '';
+    if (activeSystems.includes('Red')) {
+      html += `
+        <p><strong>RED NETWORK ANTI-PALOMAS:</strong> sus características generales son las siguientes:</p>
+        <ul>
+          <li>Base de polietileno trenzado pretratado contra la radiación U.V.</li>
+          <li>Fijación de la red sobre cable de 2mm. de diámetro con puntos de anclaje de seguridad y pasadores, todos de acero galvanizado.</li>
+          <li>Cada hebra se forma por 3 filamentos dobles, confiriendo una resistencia muy superior a la necesaria y un diámetro de fibras que impide a las palomas posarse sobre la red.</li>
+          <li>El diámetro del rombo de la red de paloma (50 mm.) impide que las palomas pasen a su través sin disminuir la luminosidad ni la ventilación natural.</li>
+        </ul>
+        <img src="${IMAGE_RED_BASE64}" class="document-image" data-img-id="img_template_2" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+      `;
+    }
+    if (activeSystems.includes('Varillas')) {
+      html += `
+        <p><strong>VARILLAS AVIPOINT :</strong> sus características son las siguientes:</p>
+        <ul>
+          <li>Alambre de acero inoxidable 302 de 1,4 mm. Diámetro emportado en una base de policarbonato protegido contra la luz ultravioleta.</li>
+          <li>Punta roma de baja reflectancia que no daña a las aves pero impide su posado.</li>
+          <li>Fijación con adhesivo sellador de poliuretano de exteriores.</li>
+        </ul>
+        <img src="${IMAGE_VARILLAS_BASE64}" class="document-image" data-img-id="img_template_3" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+      `;
+    }
+    if (activeSystems.includes('Eléctrico')) {
+      html += `
+        <p><strong>SISTEMA ELECTROESTÁTICO DISUASORIO (ELÉCTRICO):</strong> sus características son las siguientes:</p>
+        <ul>
+          <li>Solución de alta discreción visual, ideal para edificios catalogados o zonas de alto valor estético.</li>
+          <li>Emisión de impulsos electroestáticos de baja frecuencia y baja intensidad, completamente inocuos para las aves pero altamente disuasorios.</li>
+          <li>Línea perimetral de conductores de acero inoxidable fijados sobre aisladores de policarbonato estabilizado.</li>
+        </ul>
+      `;
+    }
+    if (activeSystems.includes('Capturas')) {
+      html += `
+        <p><strong>PLAN DE CAPTURAS SELECTIVAS:</strong> sus características son las siguientes:</p>
+        <ul>
+          <li>Instalación de jaulas trampa homologadas dotadas de comederos, bebederos y sombreado para garantizar el bienestar animal.</li>
+          <li>Revisiones y mantenimiento periódico por técnicos autorizados para control de capturas, retirada selectiva y cebado.</li>
+          <li>Retirada y traslado humanitario de los ejemplares de acuerdo con la legislación autonómica de protección y sanidad animal.</li>
+        </ul>
+      `;
+    }
+    return html;
+  };
+
+  useEffect(() => {
+    if (editorRef.current) {
+      const desPlagaEl = editorRef.current.querySelector('.des-plaga-block');
+      if (desPlagaEl) {
+        const activeRule = rules.find(r => r.birdType === selectedBird && r.isActive);
+        const plagaDescription = activeRule ? activeRule.textToInclude : '';
+        desPlagaEl.innerHTML = plagaDescription ? `<p>${plagaDescription}</p>` : '';
+      }
+      
+      editorRef.current.querySelectorAll('.plaga-field').forEach(el => {
+        el.textContent = selectedBird;
+      });
+
+      const sistemasEl = editorRef.current.querySelector('.sistemas-block');
+      if (sistemasEl) {
+        sistemasEl.innerHTML = wrapImagesInEditor(getSystemsHtml(selectedSystems));
+      }
+      
+      const priSys = selectedSystems[0] || 'Red';
+      const z1 = priSys === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
+      const z2 = priSys === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
+      const z3 = priSys === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
+      
+      editorRef.current.querySelectorAll('.zona-1-field').forEach(el => { el.textContent = z1; });
+      editorRef.current.querySelectorAll('.zona-2-field').forEach(el => { el.textContent = z2; });
+      editorRef.current.querySelectorAll('.zona-3-field').forEach(el => { el.textContent = z3; });
+      
+      editorRef.current.querySelectorAll('.zonas-afectadas-field').forEach(el => {
+        el.textContent = priSys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas';
+      });
+
+      setEditorHtml(editorRef.current.innerHTML);
+    }
+  }, [selectedBird, selectedSystems]);
+
   const [price1, setPrice1] = useState<string>('300.00');
   const [price2, setPrice2] = useState<string>('150.00');
   const [price3, setPrice3] = useState<string>('450.00');
@@ -164,7 +258,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const z2 = selectedSystem === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
       const z3 = selectedSystem === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
 
-      let initialHtml = WORD_TEMPLATE_HTML
+      const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
+      const templateWithPlaceholders = WORD_TEMPLATE_HTML
+        .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
+        .replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
+                 'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
+
+      let initialHtml = templateWithPlaceholders
         .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
         .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${clientAddressInput}</span>`)
@@ -186,7 +286,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
         .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
         .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
-        .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`);
+        .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
+        .replace(/\[DESCRIPCION_PLAGA\]/g, '')
+        .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '');
 
       setEditorHtml(wrapImagesInEditor(initialHtml));
     }
@@ -427,9 +529,11 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     
     const updated: Quote = {
       ...quote,
-      clientName: extractedClient || 'Comunidad Editada',
+      clientName: clientNameInput || extractedClient || 'Comunidad Editada',
       clientAddress: clientAddressInput,
       clientEmail: clientEmailInput,
+      birds: [selectedBird],
+      systems: selectedSystems,
       estimationLineal: meters,
       totalCost: parseFloat(price3) || 0,
       documentHtml: htmlContent,
@@ -477,7 +581,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           }
 
           const data = await response.json();
-
           setVideoProgress(100);
           
           // Auto-fill extraction logic
@@ -491,11 +594,20 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           else if (textLower.includes('gaviota')) detectedBird = 'Gaviotas';
           else if (textLower.includes('gorrion') || textLower.includes('gorrión')) detectedBird = 'Gorriones';
           
-          // 2. Systems detection
-          let detectedSystem = 'Red';
-          if (textLower.includes('red') || textLower.includes('malla')) detectedSystem = 'Red';
-          else if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa')) {
-            detectedSystem = 'Varillas';
+          // 2. Systems detection (multiple)
+          const detectedSystemsList: string[] = [];
+          if (textLower.includes('red') || textLower.includes('malla')) detectedSystemsList.push('Red');
+          if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa') || textLower.includes('varillas')) {
+            detectedSystemsList.push('Varillas');
+          }
+          if (textLower.includes('eléctrico') || textLower.includes('electrostático') || textLower.includes('electrico')) {
+            detectedSystemsList.push('Eléctrico');
+          }
+          if (textLower.includes('captura') || textLower.includes('trampa') || textLower.includes('capturas')) {
+            detectedSystemsList.push('Capturas');
+          }
+          if (detectedSystemsList.length === 0) {
+            detectedSystemsList.push('Red');
           }
 
           // 3. Lineal meters extraction
@@ -521,7 +633,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           }
  
           setSelectedBird(detectedBird);
-          setSelectedSystem(detectedSystem);
+          setSelectedSystems(detectedSystemsList);
  
           // Re-initialize from template to ensure clean replacements
           const today = new Date();
@@ -534,9 +646,10 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           const monthStr = monthNames[today.getMonth()];
           const yearStr = today.getFullYear().toString().substring(2);
           
-          const z1 = detectedSystem === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
-          const z2 = detectedSystem === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
-          const z3 = detectedSystem === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
+          const primarySys = detectedSystemsList[0] || 'Red';
+          const z1 = primarySys === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
+          const z2 = primarySys === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
+          const z3 = primarySys === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
           
           const pcp = detectedAddress.match(/\b\d{5}\b/)?.[0] || '28001';
           const pcpPrefix = pcp.substring(0, 3) + '00';
@@ -545,7 +658,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           setClientNameInput(detectedClient);
           setClientAddressInput(detectedAddress);
           
-          let freshHtml = WORD_TEMPLATE_HTML
+          const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
+          const templateWithPlaceholders = WORD_TEMPLATE_HTML
+            .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
+            .replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
+                     'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
+
+          let freshHtml = templateWithPlaceholders
             .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
             .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${detectedClient.toUpperCase()}</span>`)
             .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${detectedAddress}</span>`)
@@ -556,7 +675,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
             .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
-            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${detectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
+            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
             .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${data.text}</span>`)
             .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.</span>`)
             .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">se observaron nidos construidos y obstrucciones en los conductos.</span>`)
@@ -567,7 +686,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
             .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
             .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
-            .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`);
+            .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
+            .replace(/\[DESCRIPCION_PLAGA\]/g, '')
+            .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '');
  
           const finalHtml = wrapImagesInEditor(freshHtml);
           if (editorRef.current) {
@@ -858,6 +979,60 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
         {/* Right Side: Configuration & Parameters panel */}
         <div className="w-full lg:w-[320px] shrink-0 space-y-6">
+          {/* Technical Configuration Form */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <span className="material-symbols-outlined text-[#009FE3] text-lg">settings</span>
+              Configuración Técnica
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Tipo de Ave-Plaga</label>
+                <select
+                  value={selectedBird}
+                  onChange={(e) => setSelectedBird(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors bg-white cursor-pointer"
+                >
+                  <option value="Palomas">Palomas (Columba livia)</option>
+                  <option value="Gorriones">Gorriones (Passer domesticus)</option>
+                  <option value="Cigüeñas">Cigüeñas (Ciconia ciconia)</option>
+                  <option value="Gaviotas">Gaviotas (Laridae)</option>
+                  <option value="Cotorras">Cotorras (Invasoras)</option>
+                  <option value="Golondrinas">Golondrinas (Protegida)</option>
+                  <option value="Urracas">Urracas (Pica pica)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Sistemas Propuestos</label>
+                <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200/50">
+                  {['Red', 'Varillas', 'Eléctrico', 'Capturas'].map((sys) => {
+                    const isChecked = selectedSystems.includes(sys);
+                    return (
+                      <label key={sys} className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              if (selectedSystems.length > 1) {
+                                setSelectedSystems(selectedSystems.filter(s => s !== sys));
+                              }
+                            } else {
+                              setSelectedSystems([...selectedSystems, sys]);
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-[#009FE3] focus:ring-[#009FE3] border-slate-350"
+                        />
+                        <span>{sys === 'Red' ? 'Red Network' : sys === 'Varillas' ? 'Varillas Avipoint' : sys === 'Eléctrico' ? 'Sistema Eléctrico' : 'Jaulas de Captura'}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Client Details Form */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">

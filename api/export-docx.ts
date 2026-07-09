@@ -14,9 +14,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'No se recibió contenido HTML.' });
     }
 
-    // 1. Extract variables from HTML spans
-    const extractSpan = (className: string, defaultValue: string = ''): string => {
-      const regex = new RegExp(`class="[^"]*\\b${className}\\b[^"]*"[^>]*>([\\s\\S]*?)<\\/span>`, 'i');
+    // 1. Extract variables and content blocks from HTML
+    const extractContent = (className: string, defaultValue: string = ''): string => {
+      const regex = new RegExp(`class="[^"]*\\b${className}\\b[^"]*"[^>]*>([\\s\\S]*?)<\\/(?:span|div|p)>`, 'i');
       const match = html.match(regex);
       if (match && match[1]) {
         return match[1].replace(/<[^>]+>/g, '').trim();
@@ -24,41 +24,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return defaultValue;
     };
 
-    const refCode = extractSpan('ref-code-field', 'Ref-@@@@@@@@@@@');
-    const clientName = extractSpan('client-name-field', '@@@@@@@@');
-    const clientAddress = extractSpan('client-address-field', '@@@@@@@@');
-    const postalCode = extractSpan('postal-code-field', '@@@@');
-    const postalCodePrefix = extractSpan('postal-code-prefix-field', '@@');
-    const attName = extractSpan('att-name-field', '@@@@@@@@');
-    const day = extractSpan('day-field', '@@');
-    const month = extractSpan('month-field', '@@@@@');
-    const year = extractSpan('year-field', '@@');
-    const plaga = extractSpan('plaga-field', '@@@@');
-    const zonasAfectadas = extractSpan('zonas-afectadas-field', '@@@@@@@@ y @@@@@@@@');
+    const refCode = extractContent('ref-code-field', 'Ref-@@@@@@@@@@@');
+    const clientName = extractContent('client-name-field', '@@@@@@@@');
+    const clientAddress = extractContent('client-address-field', '@@@@@@@@');
+    const postalCode = extractContent('postal-code-field', '@@@@');
+    const postalCodePrefix = extractContent('postal-code-prefix-field', '@@');
+    const attName = extractContent('att-name-field', '@@@@@@@@');
+    const day = extractContent('day-field', '@@');
+    const month = extractContent('month-field', '@@@@@');
+    const year = extractContent('year-field', '@@');
+    const plaga = extractContent('plaga-field', '@@@@');
+    const zonasAfectadas = extractContent('zonas-afectadas-field', '@@@@@@@@ y @@@@@@@@');
     
     // Technical observations
-    const introTecnica = extractSpan('transcription-field', '');
-    const problemaPrincipal = extractSpan('problema-principal-field', '@@@@@@@@');
-    const detalleAdicional = extractSpan('detalle-adicional-field', '@@@@@@@@');
+    const introTecnica = extractContent('transcription-field', '');
+    const problemaPrincipal = extractContent('problema-principal-field', '@@@@@@@@');
+    const detalleAdicional = extractContent('detalle-adicional-field', '@@@@@@@@');
     
     // Protection zones
-    const zona1 = extractSpan('zona-1-field', '@@@@@@@@');
-    const zona2 = extractSpan('zona-2-field', '@@@@@@@@');
-    const zona3 = extractSpan('zona-3-field', '@@@@@@@@');
+    const zona1 = extractContent('zona-1-field', '@@@@@@@@');
+    const zona2 = extractContent('zona-2-field', '@@@@@@@@');
+    const zona3 = extractContent('zona-3-field', '@@@@@@@@');
     
     // Prices
-    const price1 = extractSpan('price-field-1', '@@@@@');
-    const price2 = extractSpan('price-field-2', '@@@@@');
-    const price3 = extractSpan('price-field-3', '@@@@@');
+    const price1 = extractContent('price-field-1', '@@@@@');
+    const price2 = extractContent('price-field-2', '@@@@@');
+    const price3 = extractContent('price-field-3', '@@@@@');
     
     // Tech & contact
-    const tecnico = extractSpan('tecnico-field', '@@@@@@@@@@@');
-    const telefono = extractSpan('telefono-field', '@@@@@@@@');
+    const tecnico = extractContent('tecnico-field', '@@@@@@@@@@@');
+    const telefono = extractContent('telefono-field', '@@@@@@@@');
+
+    // Bird plaga description block
+    const plagaDescription = extractContent('des-plaga-block', '');
 
     // 2. Extract base64 images from HTML img tags
     const images: Record<string, string> = {};
-    
-    // Map by data-img-id first
     const imgRegex = /<img[^>]+src="data:image\/(jpeg|png);base64,([^"]+)"[^>]*data-img-id="([^"]+)"/gi;
     let match;
     while ((match = imgRegex.exec(html)) !== null) {
@@ -130,7 +131,115 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return match;
     });
 
-    // 5. Overwrite/replace images in ZIP package
+    // 5. Dynamic Bird Description injection under Section 1 in XML
+    if (plagaDescription) {
+      const birdAnchorRegex = /<w:p[^>]*>[\s\S]*?aprovechar los desechos animales[\s\S]*?<\/w:p>/i;
+      const lines = plagaDescription.split('\n').filter(l => l.trim().length > 0);
+      const xmlParagraphs = lines.map(line => `
+        <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
+            <w:t>${line}</w:t>
+          </w:r>
+        </w:p>
+      `).join('');
+      
+      docXml = docXml.replace(birdAnchorRegex, (match) => match + xmlParagraphs);
+    }
+
+    // 6. Dynamic System Specifications injection and removal in XML
+    // Remove RED description and image if not proposed
+    if (!html.includes('RED NETWORK ANTI-PALOMAS')) {
+      const pRedTitle = /<w:p[^>]*>[\s\S]*?r:embed="rId11"[\s\S]*?<\/w:p>/g;
+      docXml = docXml.replace(pRedTitle, '');
+      const pRedBullets = [
+        /<w:p[^>]*>[\s\S]*?Base de polietileno trenzado[\s\S]*?<\/w:p>/gi,
+        /<w:p[^>]*>[\s\S]*?Fijación de la red sobre cable[\s\S]*?<\/w:p>/gi,
+        /<w:p[^>]*>[\s\S]*?Cada hebra se forma por 3 filamentos[\s\S]*?<\/w:p>/gi,
+        /<w:p[^>]*>[\s\S]*?El diámetro del rombo[\s\S]*?<\/w:p>/gi,
+      ];
+      pRedBullets.forEach(re => { docXml = docXml.replace(re, ''); });
+    }
+
+    // Remove VARILLAS description and image if not proposed
+    if (!html.includes('VARILLAS AVIPOINT')) {
+      const pVarillasTitle = /<w:p[^>]*>[\s\S]*?r:embed="rId12"[\s\S]*?<\/w:p>/g;
+      docXml = docXml.replace(pVarillasTitle, '');
+      const pVarillasBullets = [
+        /<w:p[^>]*>[\s\S]*?Alambre de acero inoxidable[\s\S]*?<\/w:p>/gi,
+        /<w:p[^>]*>[\s\S]*?Punta roma de baja[\s\S]*?<\/w:p>/gi,
+        /<w:p[^>]*>[\s\S]*?Fijación con adhesivo sellador[\s\S]*?<\/w:p>/gi,
+      ];
+      pVarillasBullets.forEach(re => { docXml = docXml.replace(re, ''); });
+    }
+
+    // Append Eléctrico or Capturas if proposed
+    const electricoXml = `
+      <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr>
+          <w:t>SISTEMA ELECTROESTÁTICO DISUASORIO (ELÉCTRICO): </w:t>
+        </w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>sus características son las siguientes:</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Solución de alta discreción visual, ideal para edificios catalogados o zonas de alto valor estético.</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Emisión de impulsos electroestáticos de baja frecuencia y baja intensidad, completamente inocuos para las aves pero altamente disuasorios.</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Línea perimetral de conductores de acero inoxidable fijados sobre aisladores de policarbonato estabilizado.</w:t>
+        </w:r>
+      </w:p>
+    `;
+
+    const capturasXml = `
+      <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr>
+          <w:t>PLAN DE CAPTURAS SELECTIVAS: </w:t>
+        </w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>sus características son las siguientes:</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Instalación de jaulas trampa homologadas dotadas de comederos, bebederos y sombreado para garantizar el bienestar animal.</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Revisiones y mantenimiento periódico por técnicos autorizados para control de capturas, retirada selectiva y cebado.</w:t>
+        </w:r>
+      </w:p>
+      <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+          <w:t>Retirada y traslado humanitario de los ejemplares de acuerdo con la legislación autonómica de protección y sanidad animal.</w:t>
+        </w:r>
+      </w:p>
+    `;
+
+    if (html.includes('SISTEMA ELECTROESTÁTICO DISUASORIO') || html.includes('PLAN DE CAPTURAS SELECTIVAS')) {
+      const anchorRegex = /<w:p[^>]*>[\s\S]*?A continuación detallamos las características de los sistemas elegidos[\s\S]*?<\/w:p>/i;
+      docXml = docXml.replace(anchorRegex, (match) => {
+        let extraXml = '';
+        if (html.includes('SISTEMA ELECTROESTÁTICO DISUASORIO')) {
+          extraXml += electricoXml;
+        }
+        if (html.includes('PLAN DE CAPTURAS SELECTIVAS')) {
+          extraXml += capturasXml;
+        }
+        return match + extraXml;
+      });
+    }
+
+    // 7. Overwrite/replace images in ZIP package
     if (images['img_template_2']) {
       zip.file('word/media/image2.jpeg', Buffer.from(images['img_template_2'], 'base64'), { binary: true });
     }
@@ -141,7 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       zip.file('word/media/image4.jpeg', Buffer.from(images['img_template_4'], 'base64'), { binary: true });
     }
 
-    // 6. Delete unused images from word/document.xml if they were removed in the editor
+    // 8. Clean up unused images from document XML
     if (!html.includes('data-img-id="img_template_2"') && !html.includes('Foto_Inspeccion_1.jpg')) {
       const pRegex = /<w:p[^>]*>[\s\S]*?r:embed="rId11"[\s\S]*?<\/w:p>/g;
       docXml = docXml.replace(pRegex, '');
@@ -155,10 +264,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       docXml = docXml.replace(pRegex, '');
     }
 
-    // 7. Write modified XML back into zip
+    // 9. Write modified XML back into zip
     zip.file('word/document.xml', docXml);
 
-    // 8. Generate DOCX file buffer and send response
+    // 10. Generate DOCX file buffer and send response
     const fileBuffer = zip.generate({ type: 'nodebuffer' });
     
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
