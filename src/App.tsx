@@ -149,7 +149,12 @@ export default function App() {
       <div className={`flex-1 flex flex-col min-h-screen w-full ${currentTab !== 'editor' ? 'md:pl-64' : ''}`}>
         {/* Top App Bar: hide in editor tab */}
         {currentTab !== 'editor' && (
-          <TopAppBar currentTab={currentTab} />
+          <TopAppBar
+            currentTab={currentTab}
+            setCurrentTab={setCurrentTab}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
         )}
         
         {/* Content viewport area */}
