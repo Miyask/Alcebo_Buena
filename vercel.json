@@ -5,6 +5,10 @@
       "destination": "/api/export-docx.ts"
     },
     {
+      "source": "/api/transcribe",
+      "destination": "/api/transcribe.ts"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
