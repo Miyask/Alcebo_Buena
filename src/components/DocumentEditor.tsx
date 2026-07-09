@@ -36,6 +36,36 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [customText, setCustomText] = useState<string>(quote.text || '');
 
+  const wrapImagesInEditor = (html: string): string => {
+    const imgRegex = /<img\s+src="data:image\/(jpeg|png);base64,([^"]+)"\s*\/?>/gi;
+    let idx = 0;
+    return html.replace(imgRegex, (match, type, base64) => {
+      idx++;
+      if (idx === 1) return match; // Skip logo
+      const imgId = `img_template_${idx}`;
+      const filename = idx === 2 ? 'Foto_Inspeccion_1.jpg' : idx === 3 ? 'Foto_Inspeccion_2.jpg' : 'Propuesta_Tecnica.jpg';
+      const caption = idx === 2 ? 'Fig: Muestra de zona afectada 1' : idx === 3 ? 'Fig: Muestra de zona afectada 2' : 'Fig: Detalle del sistema propuesto';
+      
+      return `
+        <div class="image-container-block no-print-border" style="text-align: center; margin: 20px auto; padding: 12px; border: 2px dashed rgba(0,159,227,0.3); border-radius: 12px; position: relative; display: block; max-width: 580px;" contenteditable="false">
+          <div class="image-toolbar no-print" style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:10px; background:rgba(15,23,42,0.95); padding:8px 16px; border-radius:10px; width:max-content; margin-left:auto; margin-right:auto; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); color:white; font-family:sans-serif; font-size:11px;">
+            <button type="button" onclick="window.drawOnImage('${imgId}')" style="background:#009FE3; color:white; border:none; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:sans-serif; transition:all 0.2s;">
+              🎨 Dibujar
+            </button>
+            <div style="display:flex; align-items:center; gap:6px; border-left:1px solid rgba(255,255,255,0.2); border-right:1px solid rgba(255,255,255,0.2); padding:0 10px;">
+              <span style="font-weight:bold;">Tamaño:</span>
+              <input type="range" min="150" max="650" step="5" value="550" oninput="window.resizeImageDOM('${imgId}', this.value)" onchange="window.resizeImageSync('${imgId}', this.value)" style="width:80px; accent-color:#009FE3; cursor:pointer; height:4px; border-radius:2px;" />
+            </div>
+          </div>
+          <img src="data:image/${type};base64,${base64}" class="document-image" data-img-id="${imgId}" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+          <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;">
+            ${caption}. Pulsa "Dibujar" para hacer anotaciones.
+          </div>
+        </div>
+      `;
+    });
+  };
+
   // Manual input fields that sync with document in real-time
   const [clientNameInput, setClientNameInput] = useState<string>(quote.clientName || 'COMUNIDAD DE VECINOS');
   const [clientAddressInput, setClientAddressInput] = useState<string>(quote.clientAddress || 'Calle Principal s/n');
@@ -133,32 +163,32 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const z1 = selectedSystem === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
       const z2 = selectedSystem === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
       const z3 = selectedSystem === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
-      
+
       let initialHtml = WORD_TEMPLATE_HTML
-        .replace(/\[REF_CODE\]/g, quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id)
+        .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
         .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${clientAddressInput}</span>`)
-        .replace(/\[POSTAL_CODE\]/g, '28001')
-        .replace(/\[POSTAL_CODE_PREFIX\]/g, '280')
-        .replace(/\[ATT_NAME\]/g, 'Presidente de la Comunidad')
-        .replace(/\[DAY\]/g, dayStr)
-        .replace(/\[MONTH\]/g, monthStr)
-        .replace(/\[YEAR\]/g, yearStr)
-        .replace(/\[PLAGA\]/g, `${selectedBird}`)
-        .replace(/\[ZONAS_AFECTADAS\]/g, selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')
-        .replace(/\[INTRO_TECNICA\]/g, quote.text ? `<span class="transcription-field">${quote.text}</span>` : 'las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales')
-        .replace(/\[PROBLEMA_PRINCIPAL\]/g, 'es la acumulación de excrementos ácidos con riesgo sanitario y degradación de los materiales de la fachada.')
-        .replace(/\[DETALLE_ADICIONAL\]/g, 'las bajantes de agua pluvial estaban obstruidas por nidos y plumas')
-        .replace(/\[ZONA_1\]/g, z1)
-        .replace(/\[ZONA_2\]/g, z2)
-        .replace(/\[ZONA_3\]/g, z3)
+        .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">28001</span>`)
+        .replace(/\[POSTAL_CODE_PREFIX\]/g, `<span class="postal-code-prefix-field">280</span>`)
+        .replace(/\[ATT_NAME\]/g, `<span class="att-name-field">Presidente / Administrador de Fincas</span>`)
+        .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
+        .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
+        .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+        .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
+        .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
+        .replace(/\[INTRO_TECNICA\]/g, quote.text ? `<span class="transcription-field">${quote.text}</span>` : `<span class="transcription-field">las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales</span>`)
+        .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">es la acumulación de excrementos ácidos con riesgo sanitario y degradación de los materiales de la fachada.</span>`)
+        .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">las bajantes de agua pluvial estaban obstruidas por nidos y plumas</span>`)
+        .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
+        .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
+        .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
         .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${price1}</span>`)
         .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
         .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
-        .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
-        .replace(/\[TELEFONO\]/g, '900 123 456');
+        .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
+        .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`);
 
-      setEditorHtml(initialHtml);
+      setEditorHtml(wrapImagesInEditor(initialHtml));
     }
   }, [quote]);
 
@@ -516,33 +546,34 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           setClientAddressInput(detectedAddress);
           
           let freshHtml = WORD_TEMPLATE_HTML
-            .replace(/\[REF_CODE\]/g, quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id)
+            .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
             .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${detectedClient.toUpperCase()}</span>`)
             .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${detectedAddress}</span>`)
-            .replace(/\[POSTAL_CODE\]/g, pcp)
-            .replace(/\[POSTAL_CODE_PREFIX\]/g, pcpPrefix)
-            .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
-            .replace(/\[DAY\]/g, dayStr)
-            .replace(/\[MONTH\]/g, monthStr)
-            .replace(/\[YEAR\]/g, yearStr)
-            .replace(/\[PLAGA\]/g, detectedBird)
-            .replace(/\[ZONAS_AFECTADAS\]/g, detectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')
+            .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">${pcp}</span>`)
+            .replace(/\[POSTAL_CODE_PREFIX\]/g, `<span class="postal-code-prefix-field">${pcpPrefix}</span>`)
+            .replace(/\[ATT_NAME\]/g, `<span class="att-name-field">Presidente / Administrador de Fincas</span>`)
+            .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
+            .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
+            .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+            .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
+            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${detectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
             .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${data.text}</span>`)
-            .replace(/\[PROBLEMA_PRINCIPAL\]/g, 'es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.')
-            .replace(/\[DETALLE_ADICIONAL\]/g, 'se observaron nidos construidos y obstrucciones en los conductos.')
-            .replace(/\[ZONA_1\]/g, z1)
-            .replace(/\[ZONA_2\]/g, z2)
-            .replace(/\[ZONA_3\]/g, z3)
+            .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.</span>`)
+            .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">se observaron nidos construidos y obstrucciones en los conductos.</span>`)
+            .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
+            .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
+            .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
             .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${price1}</span>`)
             .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
             .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
-            .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
-            .replace(/\[TELEFONO\]/g, '900 123 456');
+            .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
+            .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`);
  
+          const finalHtml = wrapImagesInEditor(freshHtml);
           if (editorRef.current) {
-            editorRef.current.innerHTML = freshHtml;
+            editorRef.current.innerHTML = finalHtml;
           }
-          setEditorHtml(freshHtml);
+          setEditorHtml(finalHtml);
           setCustomText(data.text);
  
           setTimeout(() => {
