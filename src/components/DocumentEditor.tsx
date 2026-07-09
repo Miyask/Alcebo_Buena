@@ -763,7 +763,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       {/* Main Workspace layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
         {/* Left Side: WYSIWYG contenteditable document container (Centered A4 paper wrapper) */}
-        <div className="flex-1 w-full max-w-[850px] print-area">
+        <div className="flex-1 w-full max-w-[850px] print-area space-y-6">
           <div className="bg-white border border-slate-200 shadow-2xl hover:shadow-3xl transition-shadow duration-350 rounded-2xl overflow-hidden p-8 sm:p-14 min-h-[1200px] flex flex-col justify-between font-sans relative">
             
             {/* Watermark Logo Container (Shows only in Editor view) */}
@@ -793,6 +793,36 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               <p className="mt-1">Servicio técnico nacional habilitado | Tel: 900 123 456 | Email: soporte@alcebo.com</p>
             </div>
           </div>
+
+          {/* Transcription Text Display Area (Print-hidden) */}
+          {customText && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 print:hidden">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[#009FE3] text-lg">mic</span>
+                  Transcripción de Audio de la Inspección
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(customText);
+                    showToast('¡Transcripción copiada al portapapeles!');
+                  }}
+                  className="text-[10px] font-black text-[#009FE3] hover:text-[#006491] flex items-center gap-1 cursor-pointer bg-[#009FE3]/10 hover:bg-[#009FE3]/15 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined text-xs">content_copy</span>
+                  Copiar Texto
+                </button>
+              </div>
+              <textarea
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                rows={6}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-semibold text-slate-650 leading-relaxed outline-none focus:border-[#009FE3] transition-colors"
+                placeholder="El texto del audio/vídeo aparecerá aquí para que puedas copiar y pegar lo que falte..."
+              />
+            </div>
+          )}
         </div>
 
         {/* Right Side: Configuration & Parameters panel */}
