@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import htmlToDocx from 'html-to-docx';
 import fs from 'fs';
 import path from 'path';
+import { WATERMARK_BASE64 } from '../src/data/watermarkBase64';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -59,16 +60,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       </html>
     `;
 
-    const watermarkPath = path.join(process.cwd(), 'src', 'assets', 'template', 'image1.jpeg');
-    let headerHtml = '';
-    if (fs.existsSync(watermarkPath)) {
-      const base64Watermark = fs.readFileSync(watermarkPath, 'base64');
-      headerHtml = `
-        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1000; opacity: 0.08; text-align: center;">
-          <img src="data:image/jpeg;base64,${base64Watermark}" style="width: 550px; margin-top: 250px;" />
-        </div>
-      `;
-    }
+    const headerHtml = `
+      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1000; opacity: 0.08; text-align: center;">
+        <img src="data:image/jpeg;base64,${WATERMARK_BASE64}" style="width: 550px; margin-top: 250px;" />
+      </div>
+    `;
 
     const fileBuffer = await htmlToDocx(fullHtml, headerHtml, {
       table: { row: { cantSplit: true } },

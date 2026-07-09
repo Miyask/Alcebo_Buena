@@ -3,6 +3,7 @@ import { Quote, Template, ConditionalText, SystemConfig } from '../types';
 import { DEFAULT_CONDITIONAL_TEXTS, DEFAULT_TEMPLATES } from '../data/defaults';
 import ImageAnnotator from './ImageAnnotator';
 import { WORD_TEMPLATE_HTML } from '../data/wordTemplateHtml';
+import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 
 interface DocumentEditorProps {
   quote: Quote;
@@ -139,7 +140,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[YEAR\]/g, yearStr)
         .replace(/\[PLAGA\]/g, `${selectedBird}`)
         .replace(/\[ZONAS_AFECTADAS\]/g, selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')
-        .replace(/\[INTRO_TECNICA\]/g, 'las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales')
+        .replace(/\[INTRO_TECNICA\]/g, quote.text ? `<span class="transcription-field">${quote.text}</span>` : 'las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales')
         .replace(/\[PROBLEMA_PRINCIPAL\]/g, 'es la acumulación de excrementos ácidos con riesgo sanitario y degradación de los materiales de la fachada.')
         .replace(/\[DETALLE_ADICIONAL\]/g, 'las bajantes de agua pluvial estaban obstruidas por nidos y plumas')
         .replace(/\[ZONA_1\]/g, z1)
@@ -526,7 +527,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[YEAR\]/g, yearStr)
             .replace(/\[PLAGA\]/g, detectedBird)
             .replace(/\[ZONAS_AFECTADAS\]/g, detectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')
-            .replace(/\[INTRO_TECNICA\]/g, `durante la inspección se constató presencia activa de ${detectedBird.toLowerCase()} posándose y anidando en la zona.`)
+            .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${data.text}</span>`)
             .replace(/\[PROBLEMA_PRINCIPAL\]/g, 'es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.')
             .replace(/\[DETALLE_ADICIONAL\]/g, 'se observaron nidos construidos y obstrucciones en los conductos.')
             .replace(/\[ZONA_1\]/g, z1)
@@ -910,7 +911,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div 
               className="absolute inset-0 z-0 pointer-events-none opacity-[0.05] bg-center bg-no-repeat bg-contain"
               style={{
-                backgroundImage: 'url(/src/assets/template/image1.jpeg)',
+                backgroundImage: `url(data:image/jpeg;base64,${WATERMARK_BASE64})`,
                 margin: '100px',
               }}
             />
