@@ -644,14 +644,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       {/* Editor Header Panel with Main controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
-            <button 
-              onClick={onCancel}
-              className="p-2 px-3 rounded-xl hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer text-rose-600 border border-rose-200 flex items-center gap-1 text-xs font-bold"
-              title="Empezar un nuevo presupuesto desde cero"
-            >
-              <span className="material-symbols-outlined text-base">delete</span>
-              Nuevo Presupuesto
-            </button>
+          <button 
+            onClick={onCancel}
+            className="p-2 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 border border-slate-200"
+            title="Volver"
+          >
+            <span className="material-symbols-outlined text-lg leading-none block">arrow_back</span>
+          </button>
           <div>
             <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
               <span className="material-symbols-outlined text-[#009fe3] text-2xl">description</span>

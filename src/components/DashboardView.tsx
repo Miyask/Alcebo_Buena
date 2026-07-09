@@ -272,16 +272,6 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
           <span className="text-[10px] text-slate-450 font-semibold bg-slate-50 border border-slate-150 px-3 py-1.5 rounded-full uppercase tracking-wider">
             Formatos de vídeo y audio compatibles
           </span>
-
-          <div className="pt-2">
-            <button
-              onClick={handleCreateBlank}
-              className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs uppercase cursor-pointer active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-sm">add_circle</span>
-              Crear Presupuesto en Blanco (Sin vídeo)
-            </button>
-          </div>
         </div>
       )}
 
