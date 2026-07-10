@@ -1,60 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-const readRawBody = async (req: VercelRequest): Promise<Buffer> => {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', (err) => reject(err));
-  });
-};
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const contentType = req.headers['content-type'] || '';
-    let fileBuffer: Buffer;
-    let name = '';
-    let apiKey = '';
-    let mimeType = 'audio/wav';
+    const { file, name, apiKey } = req.body;
 
-    const rawBody = await readRawBody(req);
-
-    if (contentType.includes('application/octet-stream')) {
-      fileBuffer = rawBody;
-      name = decodeURIComponent((req.headers['x-file-name'] as string) || 'audio.wav');
-      apiKey = (req.headers['x-api-key'] as string) || '';
-      mimeType = (req.headers['x-file-type'] as string) || 'audio/wav';
-    } else {
-      // Fallback for JSON body
-      const body = JSON.parse(rawBody.toString('utf-8'));
-      const fileData = body.file;
-      name = body.name || 'audio.wav';
-      apiKey = body.apiKey || '';
-
-      if (!fileData) {
-        return res.status(400).json({ error: 'No se proporcionó ningún archivo.' });
-      }
-
-      const base64Parts = fileData.match(/^data:(.+);base64,(.+)$/);
-      if (!base64Parts) {
-        return res.status(400).json({ error: 'Formato de archivo inválido.' });
-      }
-      mimeType = base64Parts[1];
-      const base64Data = base64Parts[2];
-      fileBuffer = Buffer.from(base64Data, 'base64');
+    if (!file) {
+      return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
     }
 
-    const base64Data = fileBuffer.toString('base64');
+    // Check for valid base64 pattern
+    const base64Parts = file.match(/^data:(.+);base64,(.+)$/);
+    if (!base64Parts) {
+      return res.status(400).json({ error: 'Formato de archivo inválido. Se esperaba una URI base64.' });
+    }
+
+    const mimeType = base64Parts[1];
+    const base64Data = base64Parts[2];
 
     // Determine which API provider to use based on key prefix
     let isGroq = true;
@@ -80,7 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (isGroq) {
       // Groq API transcription call
-      const blob = new Blob([fileBuffer], { type: mimeType });
+      const buffer = Buffer.from(base64Data, 'base64');
+      const blob = new Blob([buffer], { type: mimeType });
       const formData = new FormData();
       formData.append('file', blob, name || 'audio.wav');
       formData.append('model', 'whisper-large-v3');

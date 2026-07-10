@@ -19,45 +19,23 @@ async function startServer() {
   });
 
   // Secure OpenRouter transcription proxy endpoint
-  app.post('/api/transcribe', (req, res, next) => {
-    const contentType = req.headers['content-type'] || '';
-    console.log('[LOCAL SERVER] Content-Type:', contentType);
-    if (contentType.includes('application/octet-stream')) {
-      express.raw({ type: 'application/octet-stream', limit: '100mb' })(req, res, next);
-    } else {
-      next();
-    }
-  }, async (req, res) => {
+  // Secure OpenRouter transcription proxy endpoint
+  app.post('/api/transcribe', async (req, res) => {
     try {
-      const contentType = req.headers['content-type'] || '';
-      console.log('[LOCAL SERVER] Inside handler, Content-Type:', contentType, 'Body type:', typeof req.body, 'IsBuffer:', Buffer.isBuffer(req.body));
-      let fileBuffer: Buffer;
-      let name = '';
-      let apiKey = '';
-      let mimeType = 'audio/wav';
+      const { file, name, apiKey } = req.body;
 
-      if (contentType.includes('application/octet-stream')) {
-        fileBuffer = req.body as Buffer;
-        name = decodeURIComponent((req.headers['x-file-name'] as string) || 'audio.wav');
-        apiKey = (req.headers['x-api-key'] as string) || '';
-        mimeType = (req.headers['x-file-type'] as string) || 'audio/wav';
-      } else {
-        const { file, name: reqName, apiKey: reqApiKey } = req.body;
-        if (!file) {
-          return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
-        }
-        const base64Parts = file.match(/^data:(.+);base64,(.+)$/);
-        if (!base64Parts) {
-          return res.status(400).json({ error: 'Formato de archivo inválido. Se esperaba una URI base64.' });
-        }
-        mimeType = base64Parts[1];
-        const base64Data = base64Parts[2];
-        fileBuffer = Buffer.from(base64Data, 'base64');
-        name = reqName || 'audio.wav';
-        apiKey = reqApiKey || '';
+      if (!file) {
+        return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
       }
 
-      const base64Data = fileBuffer.toString('base64');
+      // Check for valid base64 pattern
+      const base64Parts = file.match(/^data:(.+);base64,(.+)$/);
+      if (!base64Parts) {
+        return res.status(400).json({ error: 'Formato de archivo inválido. Se esperaba una URI base64.' });
+      }
+
+      const mimeType = base64Parts[1];
+      const base64Data = base64Parts[2];
 
       // Determine which API provider to use based on key prefix
       let isGroq = true;
@@ -83,7 +61,8 @@ async function startServer() {
 
       if (isGroq) {
         // Groq API transcription call (100% Free)
-        const blob = new Blob([fileBuffer], { type: mimeType });
+        const buffer = Buffer.from(base64Data, 'base64');
+        const blob = new Blob([buffer], { type: mimeType });
         const formData = new FormData();
         formData.append('file', blob, name || 'audio.wav');
         formData.append('model', 'whisper-large-v3');

@@ -89,7 +89,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
   };
 
   // Extract audio track from video/audio files on the client side to bypass Vercel serverless size limits (4.5MB)
-  const extractAudioTrack = async (file: File, userHasKey: boolean): Promise<{ blob: Blob; name: string } | null> => {
+  const extractAudioTrack = async (file: File, userHasKey: boolean): Promise<{ base64: string; name: string } | null> => {
     try {
       if (file.type.startsWith('audio/') && file.size < 2 * 1024 * 1024) {
         return null;
@@ -111,7 +111,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
         const maxBytes = 2.5 * 1024 * 1024;
         targetRate = Math.floor(maxBytes / duration);
         targetRate = Math.min(16000, targetRate); // Cap at 16kHz
-        targetRate = Math.max(3000, targetRate);  // Floor at 3kHz (minimum supported by OfflineAudioContext)
+        targetRate = Math.max(3000, targetRate);  // Floor at 3kHz
       }
       console.log('Resampling to sample rate in dashboard:', targetRate, '8-bit:', use8Bit);
 
@@ -125,14 +125,19 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       const wavBlob = audioBufferToWav(renderedBuffer, use8Bit);
       console.log('Extracted WAV size in dashboard:', wavBlob.size, 'bytes');
 
-      return {
-        blob: wavBlob,
-        name: file.name.replace(/\.[^/.]+$/, '') + '.wav'
-      };
-    } catch (err: any) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({
+            base64: reader.result as string,
+            name: file.name.replace(/\.[^/.]+$/, '') + '.wav'
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(wavBlob);
+      });
+    } catch (err) {
       console.warn('Audio extraction failed in dashboard, falling back to raw upload:', err);
-      // Show an alert to help diagnose why the browser failed to extract/decode the file
-      alert(`Aviso del navegador (Procesamiento local):\nNo se ha podido extraer el audio del vídeo automáticamente (${err.message || err.toString()}). Se intentará subir el archivo original.`);
       return null;
     }
   };
@@ -209,21 +214,18 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       setProgress(20);
       const audioResult = await extractAudioTrack(file, userHasKey);
 
-      const processWithBlob = async (fileBlob: Blob, finalName: string) => {
-        const callProxyServer = async (blobData: Blob, filename: string, key?: string) => {
-          const headers: Record<string, string> = {
-            'Content-Type': 'application/octet-stream',
-            'X-File-Name': encodeURIComponent(filename),
-            'X-File-Type': blobData.type || 'audio/wav',
-          };
-          if (key) {
-            headers['X-Api-Key'] = key;
-          }
-
+      const processWithBase64 = async (base64Uri: string, finalName: string) => {
+        const callProxyServer = async (uri: string, filename: string, key?: string) => {
           const response = await fetch('/api/transcribe', {
             method: 'POST',
-            headers: headers,
-            body: blobData,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              file: uri,
+              name: filename,
+              apiKey: key,
+            }),
           });
 
           const rawText = await response.text().catch(() => '');
@@ -254,6 +256,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
           if (userKey && userKey.startsWith('gsk_')) {
             console.log('Utilizando transcripción directa en panel principal (Groq)...');
             try {
+              const fileBlob = await (await fetch(base64Uri)).blob();
               const formData = new FormData();
               formData.append('file', fileBlob, finalName || 'audio.wav');
               formData.append('model', 'whisper-large-v3');
@@ -304,7 +307,7 @@ Transcripción:
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  model: 'llama-3.3-70b-versatile',
+                  model: 'llama-3.3-70b-specdec',
                   messages: [{ role: 'user', content: prompt }],
                   temperature: 0.1,
                   response_format: { type: 'json_object' }
@@ -321,10 +324,10 @@ Transcripción:
               data = { text: transcriptionText, aiParsed };
             } catch (directErr) {
               console.warn('Llamada directa a Groq falló, recurriendo al servidor proxy...', directErr);
-              data = await callProxyServer(fileBlob, finalName, userKey);
+              data = await callProxyServer(base64Uri, finalName, userKey);
             }
           } else {
-            data = await callProxyServer(fileBlob, finalName, userKey);
+            data = await callProxyServer(base64Uri, finalName, userKey);
           }
 
           const ai = data.aiParsed;
@@ -354,14 +357,16 @@ Transcripción:
       };
 
       if (audioResult) {
-        console.log('Audio track extracted successfully, processing Blob in dashboard...');
-        await processWithBlob(audioResult.blob, audioResult.name);
+        console.log('Audio track extracted successfully, processing WAV in dashboard...');
+        await processWithBase64(audioResult.base64, audioResult.name);
       } else {
         console.log('Using raw file for transcription in dashboard...');
-        if (file.size > 4.2 * 1024 * 1024) {
-          throw new Error('El navegador no ha podido extraer el audio de este vídeo y su tamaño (' + (file.size / (1024 * 1024)).toFixed(2) + 'MB) supera el límite del servidor (4.5MB).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (ej. .mp3, .m4a) que son mucho más ligeros.');
-        }
-        await processWithBlob(file, file.name);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Uri = reader.result as string;
+          await processWithBase64(base64Uri, file.name);
+        };
       }
     } catch (error: any) {
       console.error('File reading failed:', error);
