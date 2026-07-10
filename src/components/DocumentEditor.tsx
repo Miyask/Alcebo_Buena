@@ -609,27 +609,125 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         const base64Uri = reader.result as string;
         setVideoProgress(40);
 
-        try {
+        const callProxyServer = async (uri: string, filename: string, key?: string) => {
           const response = await fetch('/api/transcribe', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              file: base64Uri,
-              name: file.name,
-              apiKey: config?.groqApiKey,
+              file: uri,
+              name: filename,
+              apiKey: key,
             }),
           });
 
-          setVideoProgress(85);
-
+          const rawText = await response.text().catch(() => '');
           if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || errData.details || 'Error al transcribir el archivo.');
+            let errMsg = 'Error al transcribir el archivo.';
+            if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
+              throw new Error('El archivo de vídeo/audio es demasiado grande para el servidor de Vercel (límite de 4.5MB).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien graba un audio más corto, reduce la resolución del vídeo o comprímelo antes de subirlo.');
+            }
+            try {
+              const errData = JSON.parse(rawText);
+              errMsg = errData.error || errData.details || errMsg;
+            } catch (jsonErr) {
+              errMsg = rawText || errMsg;
+            }
+            throw new Error(errMsg);
           }
 
-          const data = await response.json();
+          try {
+            return JSON.parse(rawText);
+          } catch (e) {
+            throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
+          }
+        };
+
+        try {
+          let data: { text: string; aiParsed?: any } = { text: '' };
+          const userKey = config?.groqApiKey?.trim();
+
+          if (userKey && userKey.startsWith('gsk_')) {
+            console.log('Utilizando transcripción directa desde el navegador (Groq)...');
+            try {
+              const fileBlob = await (await fetch(base64Uri)).blob();
+              const formData = new FormData();
+              formData.append('file', fileBlob, file.name || 'audio.wav');
+              formData.append('model', 'whisper-large-v3');
+              formData.append('language', 'es');
+
+              const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${userKey}`
+                },
+                body: formData
+              });
+
+              if (!whisperRes.ok) {
+                const textErr = await whisperRes.text();
+                throw new Error(`Groq Whisper falló: ${textErr}`);
+              }
+
+              const whisperData = await whisperRes.json();
+              const transcriptionText = whisperData.text;
+              
+              setVideoProgress(65);
+              console.log('Transcripción directa completada. Llamando al LLM para estructuración...');
+              
+              const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
+
+JSON keys:
+- "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Urracas".
+- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
+- "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
+- "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
+- "postalCode": Código postal de 5 dígitos si se menciona, ej. "28008".
+- "meters": Metros lineales o cantidad numérica estimada que se mencione (número entero).
+- "introTecnica": Resumen técnico profesional del estado observado, escrito en tercera persona del plural ("pudimos comprobar cómo..."). Evita saludos, presentaciones personales o despedidas del técnico. Debe fluir gramaticalmente con "Durante la visita realizada pudimos comprobar cómo...". Ejemplo: "las aves anidan activamente en los aleros superiores, acumulando suciedad y restos orgánicos".
+- "problemaPrincipal": Resumen profesional del daño o problema principal. Debe fluir gramaticalmente con "El problema principal...". Ejemplo: "radica en la acumulación de excrementos ácidos en las cornisas de la fachada, deteriorando los materiales y obstruyendo las bajantes de pluviales".
+- "detalleAdicional": Cualquier detalle adicional sobre accesos, andamios, requisitos de llaves, etc. Ejemplo: "se requiere que la comunidad facilite las llaves de acceso a la terraza de cubierta con 48 horas de antelación para realizar la instalación".
+- "price1": Precio de la primera opción de presupuesto formateado (ej. "450 €").
+- "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
+- "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
+- "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
+
+Transcripción:
+"${transcriptionText}"`;
+
+              const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${userKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: 'llama-3.3-70b-specdec',
+                  messages: [{ role: 'user', content: prompt }],
+                  temperature: 0.1,
+                  response_format: { type: 'json_object' }
+                })
+              });
+
+              let aiParsed = null;
+              if (llmRes.ok) {
+                const llmData = await llmRes.json();
+                const rawJsonText = llmData.choices[0].message.content.trim();
+                aiParsed = JSON.parse(rawJsonText);
+              } else {
+                console.error('Groq LLM parsing failed in browser:', await llmRes.text());
+              }
+
+              data = { text: transcriptionText, aiParsed };
+            } catch (directErr: any) {
+              console.warn('Llamada directa a Groq falló o no está disponible. Reintentando por servidor proxy...', directErr);
+              data = await callProxyServer(base64Uri, file.name, userKey);
+            }
+          } else {
+            data = await callProxyServer(base64Uri, file.name, userKey);
+          }
+
           setVideoProgress(100);
           
           // Auto-fill extraction logic
