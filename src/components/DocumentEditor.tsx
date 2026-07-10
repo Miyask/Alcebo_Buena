@@ -47,6 +47,28 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [customText, setCustomText] = useState<string>(quote.text || '');
 
+  const cleanIntroText = (text: string): string => {
+    if (!text) return '';
+    let cleaned = text
+      .replace(/^(Durante la visita realizada pudimos comprobar cómo|Durante la visita pudimos comprobar cómo|Durante la visita realizada pudimos comprobar que|Durante la visita pudimos comprobar que|Durante la visita realizada,? pudimos comprobar cómo|Durante la visita,? pudimos comprobar cómo|Durante la visita realizada|Durante la visita|pudimos comprobar cómo|pudimos comprobar que)\s*/gi, '')
+      .trim();
+    if (cleaned.length > 0) {
+      cleaned = cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
+  const cleanProblemText = (text: string): string => {
+    if (!text) return '';
+    let cleaned = text
+      .replace(/^(El problema principal consiste en que|El problema principal radica en que|El problema principal consiste en|El problema principal radica en|El problema principal es que|El problema principal es|El problema principal)\s*/gi, '')
+      .trim();
+    if (cleaned.length > 0) {
+      cleaned = cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
   const wrapImagesInEditor = (html: string): string => {
     const imgRegex = /<img\s+src="data:image\/(jpeg|png);base64,([^"]+)"\s*\/?>/gi;
     let idx = 0;
@@ -306,8 +328,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
                  'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
 
-      const textForIntro = quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales";
-      const textForProblem = quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.";
+      const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
+      const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
 
@@ -871,8 +893,8 @@ Transcripción:
 
           const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
 
-          const textForIntro = (ai && ai.introTecnica) || data.text;
-          const textForProblem = (ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.";
+          const textForIntro = cleanIntroText((ai && ai.introTecnica) || data.text);
+          const textForProblem = cleanProblemText((ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
           const textForDetail = (ai && ai.detalleAdicional) || "se observaron nidos construidos y obstrucciones en los conductos.";
 
           let freshHtml = templateWithPlaceholders
