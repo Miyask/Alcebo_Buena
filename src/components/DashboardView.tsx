@@ -107,18 +107,11 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       let use8Bit = false;
       if (!userHasKey) {
         use8Bit = true;
-        // Standard sample rates supported by browsers: 16000, 12000, 11025, 8000
-        const maxBytes = 3.0 * 1024 * 1024;
-        const possibleRates = [16000, 12000, 11025, 8000];
-        
-        targetRate = 8000; // default to minimum
-        for (const rate of possibleRates) {
-          const estimatedSize = duration * rate * 1; // 1 byte per sample for 8-bit
-          if (estimatedSize <= maxBytes) {
-            targetRate = rate;
-            break;
-          }
-        }
+        // Limit the file size to 2.5MB to be 100% safe with Vercel's 4.5MB base64 limit
+        const maxBytes = 2.5 * 1024 * 1024;
+        targetRate = Math.floor(maxBytes / duration);
+        targetRate = Math.min(16000, targetRate); // Cap at 16kHz
+        targetRate = Math.max(3000, targetRate);  // Floor at 3kHz (minimum supported by OfflineAudioContext)
       }
       console.log('Resampling to sample rate in dashboard:', targetRate, '8-bit:', use8Bit);
 
