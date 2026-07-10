@@ -14,6 +14,13 @@ export interface Quote {
   notes: string;
   documentHtml?: string; // Rich HTML editor content with embedded annotated images
   images?: { id: string; url: string; originalName: string; caption: string; }[];
+  introTecnica?: string;
+  problemaPrincipal?: string;
+  detalleAdicional?: string;
+  refCode?: string;
+  price1?: string;
+  price2?: string;
+  price3?: string;
 }
 
 export interface Template {

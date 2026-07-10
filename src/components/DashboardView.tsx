@@ -23,6 +23,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
   const [clientName, setClientName] = useState<string>('');
   const [clientAddress, setClientAddress] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [aiData, setAiData] = useState<any>(null);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -241,6 +242,7 @@ Transcripción:
             setIsProcessing(false);
             setTranscription(data.text);
             if (ai) {
+              setAiData(ai);
               if (ai.clientName) setClientName(ai.clientName);
               if (ai.clientAddress) setClientAddress(ai.clientAddress);
               if (ai.detectedBird) setDetectedBirds([ai.detectedBird]);
@@ -290,13 +292,22 @@ Transcripción:
       date: new Date().toISOString().split('T')[0],
       status: 'Borrador',
       text: transcription,
-      birds: ['Palomas'],
-      systems: ['Red'],
-      estimationLineal: 15,
+      birds: detectedBirds.length > 0 ? detectedBirds : ['Palomas'],
+      systems: detectedSystems.length > 0 ? detectedSystems : ['Red'],
+      estimationLineal: meters,
       totalCost: 0,
       clientName: clientName || 'Comunidad Vecinos Pendiente',
       clientAddress: clientAddress || 'Sin dirección registrada',
       notes: notes || 'Presupuesto generado a partir de transcripción de voz.',
+      
+      // AI Structuring fields
+      introTecnica: notes || aiData?.introTecnica || undefined,
+      problemaPrincipal: aiData?.problemaPrincipal || undefined,
+      detalleAdicional: aiData?.detalleAdicional || undefined,
+      refCode: aiData?.refCode || undefined,
+      price1: aiData?.price1 || undefined,
+      price2: aiData?.price2 || undefined,
+      price3: aiData?.price3 || undefined,
     };
 
     onAddQuote(newQuote);
@@ -311,6 +322,7 @@ Transcripción:
     setClientName('');
     setClientAddress('');
     setNotes('');
+    setAiData(null);
   };
 
   const handleDiscard = () => {
@@ -324,6 +336,7 @@ Transcripción:
     setClientName('');
     setClientAddress('');
     setNotes('');
+    setAiData(null);
     showToast('Inspección descartada.');
   };
 

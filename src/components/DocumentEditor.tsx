@@ -306,8 +306,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
                  'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
 
+      const textForIntro = quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales";
+      const textForProblem = quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.";
+      const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
+
+      const p1_val = quote.price1 || price1;
+      const p2_val = quote.price2 || price2;
+      const p3_val = quote.price3 || price3;
+
       let initialHtml = templateWithPlaceholders
-        .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
+        .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
         .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${clientAddressInput}</span>`)
         .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">28001</span>`)
@@ -319,15 +328,15 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
-        .replace(/\[INTRO_TECNICA\]/g, quote.text ? `<span class="transcription-field">${quote.text}</span>` : `<span class="transcription-field">las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales</span>`)
-        .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">es la acumulación de excrementos ácidos con riesgo sanitario y degradación de los materiales de la fachada.</span>`)
-        .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">las bajantes de agua pluvial estaban obstruidas por nidos y plumas</span>`)
+        .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
+        .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
+        .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
         .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
         .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
         .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
-        .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${price1}</span>`)
-        .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
-        .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
+        .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${p1_val}</span>`)
+        .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${p2_val}</span>`)
+        .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
         .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, '')
@@ -863,7 +872,7 @@ Transcripción:
           const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
 
           const textForIntro = (ai && ai.introTecnica) || data.text;
-          const textForProblem = (ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.";
+          const textForProblem = (ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.";
           const textForDetail = (ai && ai.detalleAdicional) || "se observaron nidos construidos y obstrucciones en los conductos.";
 
           let freshHtml = templateWithPlaceholders
