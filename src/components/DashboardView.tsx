@@ -104,12 +104,15 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       console.log('Decoded audio duration in dashboard:', duration, 'seconds');
 
       let targetRate = 16000;
+      let use8Bit = false;
       if (!userHasKey) {
+        // Use 8-bit mono WAV to fit longer audios under the limit: size = duration * rate * 1 byte
         const maxBytes = 3.0 * 1024 * 1024;
-        targetRate = Math.min(16000, Math.floor(maxBytes / (duration * 2)));
+        targetRate = Math.min(16000, Math.floor(maxBytes / duration));
         targetRate = Math.max(8000, targetRate);
+        use8Bit = true;
       }
-      console.log('Resampling to sample rate in dashboard:', targetRate);
+      console.log('Resampling to sample rate in dashboard:', targetRate, '8-bit:', use8Bit);
 
       const offlineCtx = new OfflineAudioContext(1, Math.round(duration * targetRate), targetRate);
       const bufferSource = offlineCtx.createBufferSource();
@@ -118,7 +121,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       bufferSource.start();
       
       const renderedBuffer = await offlineCtx.startRendering();
-      const wavBlob = audioBufferToWav(renderedBuffer);
+      const wavBlob = audioBufferToWav(renderedBuffer, use8Bit);
       console.log('Extracted WAV size in dashboard:', wavBlob.size, 'bytes');
 
       return new Promise((resolve, reject) => {
@@ -138,8 +141,9 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     }
   };
 
-  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
-    const length = buffer.length * 2 + 44;
+  const audioBufferToWav = (buffer: AudioBuffer, use8Bit: boolean = false): Blob => {
+    const bytesPerSample = use8Bit ? 1 : 2;
+    const length = buffer.length * bytesPerSample + 44;
     const bufferArr = new ArrayBuffer(length);
     const view = new DataView(bufferArr);
     let pos = 0;
@@ -163,18 +167,27 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     setUint16(1);
     setUint16(1);
     setUint32(buffer.sampleRate);
-    setUint32(buffer.sampleRate * 2);
-    setUint16(2);
-    setUint16(16);
+    setUint32(buffer.sampleRate * bytesPerSample);
+    setUint16(bytesPerSample);
+    setUint16(use8Bit ? 8 : 16);
 
     setUint32(0x64617461);
     setUint32(length - pos - 4);
 
     const channelData = buffer.getChannelData(0);
-    for (let i = 0; i < channelData.length; i++) {
-      const sample = Math.max(-1, Math.min(1, channelData[i]));
-      view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-      pos += 2;
+    if (use8Bit) {
+      for (let i = 0; i < channelData.length; i++) {
+        const sample = Math.max(-1, Math.min(1, channelData[i]));
+        const val = Math.floor((sample + 1) * 127.5);
+        view.setUint8(pos, Math.max(0, Math.min(255, val)));
+        pos += 1;
+      }
+    } else {
+      for (let i = 0; i < channelData.length; i++) {
+        const sample = Math.max(-1, Math.min(1, channelData[i]));
+        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        pos += 2;
+      }
     }
 
     return new Blob([bufferArr], { type: 'audio/wav' });

@@ -611,17 +611,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const duration = audioBuffer.duration;
       console.log('Decoded audio duration:', duration, 'seconds');
 
-      // Determine target sample rate to fit Vercel payload limit (4.5MB base64, which is ~3.2MB binary)
-      // Formula: size = duration * rate * 2 bytes.
-      // If userHasKey is true (Groq key), we can go up to 25MB, so we always use 16kHz.
+      // Determine target sample rate to fit Vercel payload limit (4.5MB base64, which is ~3.0MB binary)
       let targetRate = 16000;
+      let use8Bit = false;
       if (!userHasKey) {
-        // Aim for 3.0MB max to be safe with base64 overhead
+        // Use 8-bit mono WAV to fit longer audios under the limit: size = duration * rate * 1 byte
         const maxBytes = 3.0 * 1024 * 1024;
-        targetRate = Math.min(16000, Math.floor(maxBytes / (duration * 2)));
+        targetRate = Math.min(16000, Math.floor(maxBytes / duration));
         targetRate = Math.max(8000, targetRate); // Keep at least 8kHz
+        use8Bit = true;
       }
-      console.log('Resampling to sample rate:', targetRate);
+      console.log('Resampling to sample rate:', targetRate, '8-bit:', use8Bit);
 
       // Resample using OfflineAudioContext
       const offlineCtx = new OfflineAudioContext(1, Math.round(duration * targetRate), targetRate);
@@ -633,7 +633,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const renderedBuffer = await offlineCtx.startRendering();
       
       // Encode to WAV Blob
-      const wavBlob = audioBufferToWav(renderedBuffer);
+      const wavBlob = audioBufferToWav(renderedBuffer, use8Bit);
       console.log('Extracted WAV size:', wavBlob.size, 'bytes');
 
       // Convert Blob to base64 data URI
@@ -654,8 +654,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   };
 
-  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
-    const length = buffer.length * 2 + 44;
+  const audioBufferToWav = (buffer: AudioBuffer, use8Bit: boolean = false): Blob => {
+    const bytesPerSample = use8Bit ? 1 : 2;
+    const length = buffer.length * bytesPerSample + 44;
     const bufferArr = new ArrayBuffer(length);
     const view = new DataView(bufferArr);
     let pos = 0;
@@ -679,18 +680,27 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     setUint16(1); // raw PCM
     setUint16(1); // mono
     setUint32(buffer.sampleRate);
-    setUint32(buffer.sampleRate * 2);
-    setUint16(2); // block align
-    setUint16(16); // bits per sample
+    setUint32(buffer.sampleRate * bytesPerSample);
+    setUint16(bytesPerSample); // block align
+    setUint16(use8Bit ? 8 : 16); // bits per sample
 
     setUint32(0x64617461); // "data"
     setUint32(length - pos - 4);
 
     const channelData = buffer.getChannelData(0);
-    for (let i = 0; i < channelData.length; i++) {
-      const sample = Math.max(-1, Math.min(1, channelData[i]));
-      view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-      pos += 2;
+    if (use8Bit) {
+      for (let i = 0; i < channelData.length; i++) {
+        const sample = Math.max(-1, Math.min(1, channelData[i]));
+        const val = Math.floor((sample + 1) * 127.5);
+        view.setUint8(pos, Math.max(0, Math.min(255, val)));
+        pos += 1;
+      }
+    } else {
+      for (let i = 0; i < channelData.length; i++) {
+        const sample = Math.max(-1, Math.min(1, channelData[i]));
+        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        pos += 2;
+      }
     }
 
     return new Blob([bufferArr], { type: 'audio/wav' });
