@@ -594,21 +594,125 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     enviarAlSeguimiento(updated);
   };
 
+  // Extract audio track from video/audio files on the client side to bypass Vercel serverless size limits (4.5MB)
+  const extractAudioTrack = async (file: File, userHasKey: boolean): Promise<{ base64: string; name: string } | null> => {
+    try {
+      // If it's already a very small audio file (under 2MB), just use it directly
+      if (file.type.startsWith('audio/') && file.size < 2 * 1024 * 1024) {
+        return null;
+      }
+
+      console.log('Extracting audio track from file:', file.name, 'Size:', file.size);
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Decode audio data from video/audio file
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const duration = audioBuffer.duration;
+      console.log('Decoded audio duration:', duration, 'seconds');
+
+      // Determine target sample rate to fit Vercel payload limit (4.5MB base64, which is ~3.2MB binary)
+      // Formula: size = duration * rate * 2 bytes.
+      // If userHasKey is true (Groq key), we can go up to 25MB, so we always use 16kHz.
+      let targetRate = 16000;
+      if (!userHasKey) {
+        // Aim for 3.0MB max to be safe with base64 overhead
+        const maxBytes = 3.0 * 1024 * 1024;
+        targetRate = Math.min(16000, Math.floor(maxBytes / (duration * 2)));
+        targetRate = Math.max(8000, targetRate); // Keep at least 8kHz
+      }
+      console.log('Resampling to sample rate:', targetRate);
+
+      // Resample using OfflineAudioContext
+      const offlineCtx = new OfflineAudioContext(1, Math.round(duration * targetRate), targetRate);
+      const bufferSource = offlineCtx.createBufferSource();
+      bufferSource.buffer = audioBuffer;
+      bufferSource.connect(offlineCtx.destination);
+      bufferSource.start();
+      
+      const renderedBuffer = await offlineCtx.startRendering();
+      
+      // Encode to WAV Blob
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      console.log('Extracted WAV size:', wavBlob.size, 'bytes');
+
+      // Convert Blob to base64 data URI
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({
+            base64: reader.result as string,
+            name: file.name.replace(/\.[^/.]+$/, '') + '.wav'
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(wavBlob);
+      });
+    } catch (err) {
+      console.warn('Audio extraction failed, falling back to raw upload:', err);
+      return null;
+    }
+  };
+
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const length = buffer.length * 2 + 44;
+    const bufferArr = new ArrayBuffer(length);
+    const view = new DataView(bufferArr);
+    let pos = 0;
+
+    const setUint16 = (data: number) => {
+      view.setUint16(pos, data, true);
+      pos += 2;
+    };
+
+    const setUint32 = (data: number) => {
+      view.setUint32(pos, data, true);
+      pos += 4;
+    };
+
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8);
+    setUint32(0x57415645); // "WAVE"
+
+    setUint32(0x666d7420); // "fmt "
+    setUint32(16);
+    setUint16(1); // raw PCM
+    setUint16(1); // mono
+    setUint32(buffer.sampleRate);
+    setUint32(buffer.sampleRate * 2);
+    setUint16(2); // block align
+    setUint16(16); // bits per sample
+
+    setUint32(0x64617461); // "data"
+    setUint32(length - pos - 4);
+
+    const channelData = buffer.getChannelData(0);
+    for (let i = 0; i < channelData.length; i++) {
+      const sample = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      pos += 2;
+    }
+
+    return new Blob([bufferArr], { type: 'audio/wav' });
+  };
+
   // Auto-fill from video transcription
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessingVideo(true);
-    setVideoProgress(15);
+    setVideoProgress(10);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const base64Uri = reader.result as string;
-        setVideoProgress(40);
+      const userKey = config?.groqApiKey?.trim();
+      const userHasKey = !!(userKey && userKey.startsWith('gsk_'));
 
+      // 1. Extract audio track on client side to downsample and remove video frames
+      setVideoProgress(20);
+      const audioResult = await extractAudioTrack(file, userHasKey);
+      
+      const processWithBase64 = async (base64Uri: string, finalName: string) => {
         const callProxyServer = async (uri: string, filename: string, key?: string) => {
           const response = await fetch('/api/transcribe', {
             method: 'POST',
@@ -646,14 +750,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
         try {
           let data: { text: string; aiParsed?: any } = { text: '' };
-          const userKey = config?.groqApiKey?.trim();
 
           if (userKey && userKey.startsWith('gsk_')) {
             console.log('Utilizando transcripción directa desde el navegador (Groq)...');
             try {
               const fileBlob = await (await fetch(base64Uri)).blob();
               const formData = new FormData();
-              formData.append('file', fileBlob, file.name || 'audio.wav');
+              formData.append('file', fileBlob, finalName || 'audio.wav');
               formData.append('model', 'whisper-large-v3');
               formData.append('language', 'es');
 
@@ -722,10 +825,10 @@ Transcripción:
               data = { text: transcriptionText, aiParsed };
             } catch (directErr: any) {
               console.warn('Llamada directa a Groq falló o no está disponible. Reintentando por servidor proxy...', directErr);
-              data = await callProxyServer(base64Uri, file.name, userKey);
+              data = await callProxyServer(base64Uri, finalName, userKey);
             }
           } else {
-            data = await callProxyServer(base64Uri, file.name, userKey);
+            data = await callProxyServer(base64Uri, finalName, userKey);
           }
 
           setVideoProgress(100);
@@ -903,8 +1006,22 @@ Transcripción:
           }, 200);
         }
       };
-    } catch (error) {
+
+      if (audioResult) {
+        console.log('Audio track extracted successfully, processing WAV...');
+        await processWithBase64(audioResult.base64, audioResult.name);
+      } else {
+        console.log('Using raw file for transcription...');
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Uri = reader.result as string;
+          await processWithBase64(base64Uri, file.name);
+        };
+      }
+    } catch (error: any) {
       console.error('File reading failed:', error);
+      alert(`Error al procesar el archivo:\n${error.message}`);
       setIsProcessingVideo(false);
     }
   };
