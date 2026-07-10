@@ -88,6 +88,98 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Extract audio track from video/audio files on the client side to bypass Vercel serverless size limits (4.5MB)
+  const extractAudioTrack = async (file: File, userHasKey: boolean): Promise<{ base64: string; name: string } | null> => {
+    try {
+      if (file.type.startsWith('audio/') && file.size < 2 * 1024 * 1024) {
+        return null;
+      }
+
+      console.log('Extracting audio track from file in dashboard:', file.name, 'Size:', file.size);
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const arrayBuffer = await file.arrayBuffer();
+      
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const duration = audioBuffer.duration;
+      console.log('Decoded audio duration in dashboard:', duration, 'seconds');
+
+      let targetRate = 16000;
+      if (!userHasKey) {
+        const maxBytes = 3.0 * 1024 * 1024;
+        targetRate = Math.min(16000, Math.floor(maxBytes / (duration * 2)));
+        targetRate = Math.max(8000, targetRate);
+      }
+      console.log('Resampling to sample rate in dashboard:', targetRate);
+
+      const offlineCtx = new OfflineAudioContext(1, Math.round(duration * targetRate), targetRate);
+      const bufferSource = offlineCtx.createBufferSource();
+      bufferSource.buffer = audioBuffer;
+      bufferSource.connect(offlineCtx.destination);
+      bufferSource.start();
+      
+      const renderedBuffer = await offlineCtx.startRendering();
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      console.log('Extracted WAV size in dashboard:', wavBlob.size, 'bytes');
+
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({
+            base64: reader.result as string,
+            name: file.name.replace(/\.[^/.]+$/, '') + '.wav'
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(wavBlob);
+      });
+    } catch (err) {
+      console.warn('Audio extraction failed in dashboard, falling back to raw upload:', err);
+      return null;
+    }
+  };
+
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const length = buffer.length * 2 + 44;
+    const bufferArr = new ArrayBuffer(length);
+    const view = new DataView(bufferArr);
+    let pos = 0;
+
+    const setUint16 = (data: number) => {
+      view.setUint16(pos, data, true);
+      pos += 2;
+    };
+
+    const setUint32 = (data: number) => {
+      view.setUint32(pos, data, true);
+      pos += 4;
+    };
+
+    setUint32(0x46464952);
+    setUint32(length - 8);
+    setUint32(0x57415645);
+
+    setUint32(0x666d7420);
+    setUint32(16);
+    setUint16(1);
+    setUint16(1);
+    setUint32(buffer.sampleRate);
+    setUint32(buffer.sampleRate * 2);
+    setUint16(2);
+    setUint16(16);
+
+    setUint32(0x64617461);
+    setUint32(length - pos - 4);
+
+    const channelData = buffer.getChannelData(0);
+    for (let i = 0; i < channelData.length; i++) {
+      const sample = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      pos += 2;
+    }
+
+    return new Blob([bufferArr], { type: 'audio/wav' });
+  };
+
   // File Upload flow
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,45 +187,148 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
 
     setFileName(file.name);
     setIsProcessing(true);
-    setProgress(15);
+    setProgress(10);
     setTranscription('');
     setClientName('');
     setClientAddress('');
     setNotes('');
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const base64Uri = reader.result as string;
-        setProgress(40);
+      const userKey = config?.groqApiKey?.trim();
+      const userHasKey = !!(userKey && userKey.startsWith('gsk_'));
 
-        try {
+      setProgress(20);
+      const audioResult = await extractAudioTrack(file, userHasKey);
+
+      const processWithBase64 = async (base64Uri: string, finalName: string) => {
+        const callProxyServer = async (uri: string, filename: string, key?: string) => {
           const response = await fetch('/api/transcribe', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              file: base64Uri,
-              name: file.name,
-              apiKey: config?.groqApiKey,
+              file: uri,
+              name: filename,
+              apiKey: key,
             }),
           });
 
-          setProgress(85);
-
+          const rawText = await response.text().catch(() => '');
           if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || errData.details || 'Error al transcribir el archivo.');
+            let errMsg = 'Error al transcribir el archivo.';
+            if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
+              throw new Error('El archivo de vídeo/audio es demasiado grande para el servidor de Vercel (límite de 4.5MB).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien graba un audio más corto, reduce la resolución del vídeo o comprímelo antes de subirlo.');
+            }
+            try {
+              const errData = JSON.parse(rawText);
+              errMsg = errData.error || errData.details || errMsg;
+            } catch (jsonErr) {
+              errMsg = rawText || errMsg;
+            }
+            throw new Error(errMsg);
           }
 
-          const data = await response.json();
+          try {
+            return JSON.parse(rawText);
+          } catch (e) {
+            throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
+          }
+        };
 
+        try {
+          let data: { text: string; aiParsed?: any } = { text: '' };
+
+          if (userKey && userKey.startsWith('gsk_')) {
+            console.log('Utilizando transcripción directa en panel principal (Groq)...');
+            try {
+              const fileBlob = await (await fetch(base64Uri)).blob();
+              const formData = new FormData();
+              formData.append('file', fileBlob, finalName || 'audio.wav');
+              formData.append('model', 'whisper-large-v3');
+              formData.append('language', 'es');
+
+              const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${userKey}`
+                },
+                body: formData
+              });
+
+              if (!whisperRes.ok) {
+                const textErr = await whisperRes.text();
+                throw new Error(`Groq Whisper falló: ${textErr}`);
+              }
+
+              const whisperData = await whisperRes.json();
+              const transcriptionText = whisperData.text;
+
+              setProgress(65);
+
+              const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
+
+JSON keys:
+- "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Urracas".
+- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
+- "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
+- "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
+- "postalCode": Código postal de 5 dígitos si se menciona, ej. "28008".
+- "meters": Metros lineales o cantidad numérica estimada que se mencione (número entero).
+- "introTecnica": Resumen técnico profesional del estado observado, escrito en tercera persona del plural ("pudimos comprobar cómo..."). Evita saludos, presentaciones personales o despedidas del técnico. Debe fluir gramaticalmente con "Durante la visita realizada pudimos comprobar cómo...". Ejemplo: "las aves anidan activamente en los aleros superiores, acumulando suciedad y restos orgánicos".
+- "problemaPrincipal": Resumen profesional del daño o problema principal. Debe fluir gramaticalmente con "El problema principal...". Ejemplo: "radica en la acumulación de excrementos ácidos en las cornisas de la fachada, deteriorando los materiales y obstruyendo las bajantes de pluviales".
+- "detalleAdicional": Cualquier detalle adicional sobre accesos, andamios, requisitos de llaves, etc. Ejemplo: "se requiere que la comunidad facilite las llaves de acceso a la terraza de cubierta con 48 horas de antelación para realizar la instalación".
+- "price1": Precio de la primera opción de presupuesto formateado (ej. "450 €").
+- "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
+- "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
+- "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
+
+Transcripción:
+"${transcriptionText}"`;
+
+              const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${userKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: 'llama-3.3-70b-specdec',
+                  messages: [{ role: 'user', content: prompt }],
+                  temperature: 0.1,
+                  response_format: { type: 'json_object' }
+                })
+              });
+
+              let aiParsed = null;
+              if (llmRes.ok) {
+                const llmData = await llmRes.json();
+                const rawJsonText = llmData.choices[0].message.content.trim();
+                aiParsed = JSON.parse(rawJsonText);
+              }
+
+              data = { text: transcriptionText, aiParsed };
+            } catch (directErr) {
+              console.warn('Llamada directa a Groq falló, recurriendo al servidor proxy...', directErr);
+              data = await callProxyServer(base64Uri, finalName, userKey);
+            }
+          } else {
+            data = await callProxyServer(base64Uri, finalName, userKey);
+          }
+
+          const ai = data.aiParsed;
           setProgress(100);
           setTimeout(() => {
             setIsProcessing(false);
             setTranscription(data.text);
+            if (ai) {
+              if (ai.clientName) setClientName(ai.clientName);
+              if (ai.clientAddress) setClientAddress(ai.clientAddress);
+              if (ai.detectedBird) setDetectedBirds([ai.detectedBird]);
+              if (ai.detectedSystems) setDetectedSystems(ai.detectedSystems);
+              if (ai.meters) setMeters(ai.meters);
+              if (ai.introTecnica) setNotes(ai.introTecnica);
+            }
             showToast('¡Vídeo/Audio transcrito con éxito!');
           }, 300);
 
@@ -146,8 +341,22 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
           }, 200);
         }
       };
-    } catch (error) {
+
+      if (audioResult) {
+        console.log('Audio track extracted successfully, processing WAV in dashboard...');
+        await processWithBase64(audioResult.base64, audioResult.name);
+      } else {
+        console.log('Using raw file for transcription in dashboard...');
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Uri = reader.result as string;
+          await processWithBase64(base64Uri, file.name);
+        };
+      }
+    } catch (error: any) {
       console.error('File reading failed:', error);
+      alert(`Error al procesar el archivo:\n${error.message}`);
       setIsProcessing(false);
     }
   };
