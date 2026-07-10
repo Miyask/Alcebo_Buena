@@ -287,6 +287,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
       }
 
+      // Strip all remaining footer artifacts globally
+      docHtml = docHtml.replace(/<p[^>]*><strong>presupuesto<\/strong><\/p>/gi, '');
+
       // Patch old drafts that don't have page-break class
       if (!docHtml.includes('page-break')) {
         docHtml = docHtml
@@ -369,6 +372,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[DESCRIPCION_PLAGA\]/g, '')
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '')
         .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+        .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
         .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
@@ -929,6 +933,7 @@ Transcripción:
             .replace(/\[DESCRIPCION_PLAGA\]/g, '')
             .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, '')
             .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+            .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
             .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
             .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
             .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
