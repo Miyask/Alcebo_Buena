@@ -106,11 +106,19 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
       let targetRate = 16000;
       let use8Bit = false;
       if (!userHasKey) {
-        // Use 8-bit mono WAV to fit longer audios under the limit: size = duration * rate * 1 byte
-        const maxBytes = 3.0 * 1024 * 1024;
-        targetRate = Math.min(16000, Math.floor(maxBytes / duration));
-        targetRate = Math.max(8000, targetRate);
         use8Bit = true;
+        // Standard sample rates supported by browsers: 16000, 12000, 11025, 8000
+        const maxBytes = 3.0 * 1024 * 1024;
+        const possibleRates = [16000, 12000, 11025, 8000];
+        
+        targetRate = 8000; // default to minimum
+        for (const rate of possibleRates) {
+          const estimatedSize = duration * rate * 1; // 1 byte per sample for 8-bit
+          if (estimatedSize <= maxBytes) {
+            targetRate = rate;
+            break;
+          }
+        }
       }
       console.log('Resampling to sample rate in dashboard:', targetRate, '8-bit:', use8Bit);
 
@@ -135,8 +143,10 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
         reader.onerror = reject;
         reader.readAsDataURL(wavBlob);
       });
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Audio extraction failed in dashboard, falling back to raw upload:', err);
+      // Show an alert to help diagnose why the browser failed to extract/decode the file
+      alert(`Aviso del navegador (Procesamiento local):\nNo se ha podido extraer el audio del vídeo automáticamente (${err.message || err.toString()}). Se intentará subir el archivo original.`);
       return null;
     }
   };
