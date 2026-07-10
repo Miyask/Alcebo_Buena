@@ -94,7 +94,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           </div>
           <img src="data:image/${type};base64,${base64}" class="document-image" data-img-id="${imgId}" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
           <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;">
-            ${caption}. Pulsa "Dibujar" para hacer anotaciones.
+            ${caption}<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
           </div>
         </div>
       `;
@@ -499,7 +499,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       </div>
       <img src="${base64Url}" class="document-image" data-img-id="${imgId}" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;" placeholder="Escribe un pie de foto...">
-        Fig: Plano de obra (${filename}). Pulsa "Dibujar" para hacer anotaciones.
+        Fig: Plano de obra (${filename})<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
       </div>
     `;
     return div;
