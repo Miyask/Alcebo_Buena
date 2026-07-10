@@ -1130,8 +1130,6 @@ Transcripción:
             page-break-inside: avoid;
           }
           img {
-            max-width: 100%;
-            height: auto;
             border: 1px solid #bec8d2;
             border-radius: 8px;
             display: block;

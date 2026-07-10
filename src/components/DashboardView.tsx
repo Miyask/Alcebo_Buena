@@ -369,8 +369,21 @@ Transcripción:
             <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
               Selecciona el archivo de vídeo (MP4, WEBM) o audio (MP3, WAV, M4A) capturado en las instalaciones del cliente. El sistema autodetectará la especie, metros y soluciones.
             </p>
-            <div className="mt-2 text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2 max-w-md mx-auto font-medium">
-              ⚠️ <strong>Límite de tamaño:</strong> Máximo 4.5MB para servidores Vercel. Si tienes archivos más grandes (hasta 25MB), puedes configurar tu propia clave de API de Groq en <strong>Ajustes</strong> para subirlos directamente sin límite del servidor.
+            <div className="mt-2 text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5 max-w-md mx-auto font-medium space-y-2.5">
+              <div>
+                ⚠️ <strong>Límite de tamaño:</strong> Máximo 4.5MB para servidores Vercel. Si tienes archivos más grandes (hasta 25MB), puedes configurar tu propia clave de API de Groq en <strong>Ajustes</strong> para subirlos directamente sin límite del servidor.
+              </div>
+              <div className="pt-2 border-t border-amber-200/50 flex justify-center">
+                <a
+                  href="https://online-audio-converter.com/sp/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black rounded-lg transition-all shadow-xs cursor-pointer active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-xs">compress</span>
+                  <span>Reducir el tamaño de los vídeos AQUÍ</span>
+                </a>
+              </div>
             </div>
           </div>
 
