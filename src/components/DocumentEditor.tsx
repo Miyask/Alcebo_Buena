@@ -594,120 +594,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     enviarAlSeguimiento(updated);
   };
 
-  // Extract audio track from video/audio files on the client side to bypass Vercel serverless size limits (4.5MB)
-  const extractAudioTrack = async (file: File, userHasKey: boolean): Promise<{ base64: string; name: string } | null> => {
-    try {
-      // If it's already a very small audio file (under 2MB), just use it directly
-      if (file.type.startsWith('audio/') && file.size < 2 * 1024 * 1024) {
-        return null;
-      }
-
-      console.log('Extracting audio track from file:', file.name, 'Size:', file.size);
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // Decode audio data from video/audio file
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      const duration = audioBuffer.duration;
-      console.log('Decoded audio duration:', duration, 'seconds');
-
-      // Determine target sample rate to fit Vercel payload limit (4.5MB base64, which is ~3.2MB binary)
-      let targetRate = 16000;
-      let use8Bit = false;
-      if (!userHasKey) {
-        use8Bit = true;
-        // Limit the file size to 2.5MB to be 100% safe with Vercel's 4.5MB base64 limit
-        const maxBytes = 2.5 * 1024 * 1024;
-        targetRate = Math.floor(maxBytes / duration);
-        targetRate = Math.min(16000, targetRate); // Cap at 16kHz
-        targetRate = Math.max(3000, targetRate);  // Floor at 3kHz
-      }
-      console.log('Resampling to sample rate:', targetRate, '8-bit:', use8Bit);
-
-      // Resample using OfflineAudioContext
-      const offlineCtx = new OfflineAudioContext(1, Math.round(duration * targetRate), targetRate);
-      const bufferSource = offlineCtx.createBufferSource();
-      bufferSource.buffer = audioBuffer;
-      bufferSource.connect(offlineCtx.destination);
-      bufferSource.start();
-      
-      const renderedBuffer = await offlineCtx.startRendering();
-      
-      // Encode to WAV Blob
-      const wavBlob = audioBufferToWav(renderedBuffer, use8Bit);
-      console.log('Extracted WAV size:', wavBlob.size, 'bytes');
-
-      // Convert Blob to base64 data URI
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve({
-            base64: reader.result as string,
-            name: file.name.replace(/\.[^/.]+$/, '') + '.wav'
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(wavBlob);
-      });
-    } catch (err) {
-      console.warn('Audio extraction failed, falling back to raw upload:', err);
-      return null;
-    }
-  };
-
-  const audioBufferToWav = (buffer: AudioBuffer, use8Bit: boolean = false): Blob => {
-    const bytesPerSample = use8Bit ? 1 : 2;
-    const length = buffer.length * bytesPerSample + 44;
-    const bufferArr = new ArrayBuffer(length);
-    const view = new DataView(bufferArr);
-    let pos = 0;
-
-    const setUint16 = (data: number) => {
-      view.setUint16(pos, data, true);
-      pos += 2;
-    };
-
-    const setUint32 = (data: number) => {
-      view.setUint32(pos, data, true);
-      pos += 4;
-    };
-
-    setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8);
-    setUint32(0x57415645); // "WAVE"
-
-    setUint32(0x666d7420); // "fmt "
-    setUint32(16);
-    setUint16(1); // raw PCM
-    setUint16(1); // mono
-    setUint32(buffer.sampleRate);
-    setUint32(buffer.sampleRate * bytesPerSample);
-    setUint16(bytesPerSample); // block align
-    setUint16(use8Bit ? 8 : 16); // bits per sample
-
-    setUint32(0x64617461); // "data"
-    setUint32(length - pos - 4);
-
-    const channelData = buffer.getChannelData(0);
-    if (use8Bit) {
-      for (let i = 0; i < channelData.length; i++) {
-        const sample = Math.max(-1, Math.min(1, channelData[i]));
-        const val = Math.floor((sample + 1) * 127.5);
-        view.setUint8(pos, Math.max(0, Math.min(255, val)));
-        pos += 1;
-      }
-    } else {
-      for (let i = 0; i < channelData.length; i++) {
-        const sample = Math.max(-1, Math.min(1, channelData[i]));
-        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        pos += 2;
-      }
-    }
-
-    return new Blob([bufferArr], { type: 'audio/wav' });
-  };
-
-  // Auto-fill from video transcription
+  // Auto-fill from video/audio transcription
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -717,57 +604,56 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
     try {
       const userKey = config?.groqApiKey?.trim();
-      const userHasKey = !!(userKey && userKey.startsWith('gsk_'));
 
-      // 1. Extract audio track on client side to downsample and remove video frames
-      setVideoProgress(20);
-      const audioResult = await extractAudioTrack(file, userHasKey);
-      
-      const processWithBase64 = async (base64Uri: string, finalName: string) => {
-        const callProxyServer = async (uri: string, filename: string, key?: string) => {
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              file: uri,
-              name: filename,
-              apiKey: key,
-            }),
-          });
-
-          const rawText = await response.text().catch(() => '');
-          if (!response.ok) {
-            let errMsg = 'Error al transcribir el archivo.';
-            if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
-              throw new Error('El archivo de vídeo/audio es demasiado grande para el servidor de Vercel (límite de 4.5MB).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien graba un audio más corto, reduce la resolución del vídeo o comprímelo antes de subirlo.');
-            }
-            try {
-              const errData = JSON.parse(rawText);
-              errMsg = errData.error || errData.details || errMsg;
-            } catch (jsonErr) {
-              errMsg = rawText || errMsg;
-            }
-            throw new Error(errMsg);
-          }
-
-          try {
-            return JSON.parse(rawText);
-          } catch (e) {
-            throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
-          }
-        };
-
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Uri = reader.result as string;
+        
         try {
           let data: { text: string; aiParsed?: any } = { text: '' };
+
+          const callProxyServer = async (uri: string, filename: string, key?: string) => {
+            const response = await fetch('/api/transcribe', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                file: uri,
+                name: filename,
+                apiKey: key,
+              }),
+            });
+
+            const rawText = await response.text().catch(() => '');
+            if (!response.ok) {
+              let errMsg = 'Error al transcribir el archivo.';
+              if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
+                throw new Error('El archivo es demasiado grande para el servidor de Vercel (límite de 4.5MB en Base64).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (.mp3, .m4a) que son mucho más ligeros y no fallan.');
+              }
+              try {
+                const errData = JSON.parse(rawText);
+                errMsg = errData.error || errData.details || errMsg;
+              } catch (jsonErr) {
+                errMsg = rawText || errMsg;
+              }
+              throw new Error(errMsg);
+            }
+
+            try {
+              return JSON.parse(rawText);
+            } catch (e) {
+              throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
+            }
+          };
 
           if (userKey && userKey.startsWith('gsk_')) {
             console.log('Utilizando transcripción directa desde el navegador (Groq)...');
             try {
               const fileBlob = await (await fetch(base64Uri)).blob();
               const formData = new FormData();
-              formData.append('file', fileBlob, finalName || 'audio.wav');
+              formData.append('file', fileBlob, file.name);
               formData.append('model', 'whisper-large-v3');
               formData.append('language', 'es');
 
@@ -788,7 +674,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               const transcriptionText = whisperData.text;
               
               setVideoProgress(65);
-              console.log('Transcripción directa completada. Llamando al LLM para estructuración...');
               
               const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
 
@@ -817,7 +702,7 @@ Transcripción:
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  model: 'llama-3.3-70b-specdec',
+                  model: 'llama-3.3-70b-versatile',
                   messages: [{ role: 'user', content: prompt }],
                   temperature: 0.1,
                   response_format: { type: 'json_object' }
@@ -829,17 +714,15 @@ Transcripción:
                 const llmData = await llmRes.json();
                 const rawJsonText = llmData.choices[0].message.content.trim();
                 aiParsed = JSON.parse(rawJsonText);
-              } else {
-                console.error('Groq LLM parsing failed in browser:', await llmRes.text());
               }
 
               data = { text: transcriptionText, aiParsed };
             } catch (directErr: any) {
               console.warn('Llamada directa a Groq falló o no está disponible. Reintentando por servidor proxy...', directErr);
-              data = await callProxyServer(base64Uri, finalName, userKey);
+              data = await callProxyServer(base64Uri, file.name, userKey);
             }
           } else {
-            data = await callProxyServer(base64Uri, finalName, userKey);
+            data = await callProxyServer(base64Uri, file.name, userKey);
           }
 
           setVideoProgress(100);
@@ -909,7 +792,7 @@ Transcripción:
           if (ai && ai.clientAddress) {
             detectedAddress = ai.clientAddress;
           } else {
-            const matchAddress = textLower.match(/(?:calle|avda|avenida|plaza|c\/)\s+[\w\sñáéíóúÁÉÍÓÚ\d,]+/i);
+            const matchAddress = textLower.match(/(?:calle|c\/|avda|avenida|plaza|c\/)\s+[\w\sñáéíóúÁÉÍÓÚ\d,]+/i);
             if (matchAddress && matchAddress[0]) {
               detectedAddress = matchAddress[0].trim();
             }
@@ -996,40 +879,27 @@ Transcripción:
             .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
             .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<hr class="page-break" /><p><strong>6.- PRESUPUESTO Y GARANTÍAS');
  
-          const finalHtml = wrapImagesInEditor(freshHtml);
-          if (editorRef.current) {
-            editorRef.current.innerHTML = finalHtml;
-          }
-          setEditorHtml(finalHtml);
-          setCustomText(data.text);
+           const finalHtml = wrapImagesInEditor(freshHtml);
+           if (editorRef.current) {
+             editorRef.current.innerHTML = finalHtml;
+           }
+           setEditorHtml(finalHtml);
+           setCustomText(data.text);
  
-          setTimeout(() => {
-            setIsProcessingVideo(false);
-            showToast('¡Presupuesto rellenado con éxito desde el audio!');
-          }, 300);
+           setTimeout(() => {
+             setIsProcessingVideo(false);
+             showToast('¡Presupuesto rellenado con éxito desde el audio!');
+           }, 300);
  
-        } catch (err: any) {
-          console.error('Video auto-fill failed:', err);
-          setVideoProgress(100);
-          setTimeout(() => {
-            setIsProcessingVideo(false);
-            alert(`Error al procesar el vídeo:\n${err.message}`);
-          }, 200);
-        }
+         } catch (err: any) {
+           console.error('Video auto-fill failed:', err);
+           setVideoProgress(100);
+           setTimeout(() => {
+             setIsProcessingVideo(false);
+             alert(`Error al procesar el vídeo:\n${err.message}`);
+           }, 200);
+         }
       };
-
-      if (audioResult) {
-        console.log('Audio track extracted successfully, processing WAV...');
-        await processWithBase64(audioResult.base64, audioResult.name);
-      } else {
-        console.log('Using raw file for transcription...');
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-          const base64Uri = reader.result as string;
-          await processWithBase64(base64Uri, file.name);
-        };
-      }
     } catch (error: any) {
       console.error('File reading failed:', error);
       alert(`Error al procesar el archivo:\n${error.message}`);
@@ -1150,10 +1020,10 @@ Transcripción:
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 sm:flex-initial bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
-              title="Subir vídeo o audio de inspección para auto-rellenar la plantilla"
+              title="Subir vídeo o audio de inspección (Límite: 4.5MB en Vercel, o hasta 25MB con tu clave de Groq en Ajustes)"
             >
               <span className="material-symbols-outlined text-sm">cloud_upload</span>
-              {isProcessingVideo ? `Procesando... ${videoProgress}%` : 'Subir Vídeo/Audio'}
+              {isProcessingVideo ? `Procesando... ${videoProgress}%` : 'Subir Vídeo/Audio (Máx. 4.5MB)'}
             </button>
 
             <button
