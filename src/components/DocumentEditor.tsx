@@ -1008,6 +1008,43 @@ Transcripción:
       container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
     });
 
+    const imagesInDoc = tempDiv.querySelectorAll('img');
+    imagesInDoc.forEach(img => {
+      const imgId = img.getAttribute('data-img-id') || '';
+      
+      if (!imgId.startsWith('img_') || imgId.startsWith('img_system_')) return;
+      
+      const originalImg = editorRef.current?.querySelector(`img[data-img-id="${imgId}"]`);
+      const container = originalImg?.closest('.image-container-block');
+      const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
+      
+      let pxWidth = 550;
+      if (slider && slider.value) {
+        pxWidth = parseInt(slider.value);
+      } else {
+        const styleWidth = img.style.width || img.getAttribute('width');
+        if (styleWidth) {
+          const parsed = parseInt(styleWidth);
+          if (!isNaN(parsed)) pxWidth = parsed;
+        }
+      }
+      if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 550;
+
+      let aspectRatio = 0.75;
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
+      if (naturalWidth && naturalHeight && naturalWidth > 0) {
+        aspectRatio = naturalHeight / naturalWidth;
+      }
+      
+      const pxHeight = Math.round(pxWidth * aspectRatio);
+
+      img.setAttribute('width', pxWidth.toString());
+      img.setAttribute('height', pxHeight.toString());
+      img.style.width = pxWidth + 'px';
+      img.style.height = pxHeight + 'px';
+    });
+
     const cleanHtmlContent = tempDiv.innerHTML;
     
     // Build full high-fidelity styled HTML document
@@ -1228,8 +1265,7 @@ ${fullHtml}
         const imgId = img.getAttribute('data-img-id') || '';
         
         // Skip logo and system diagrams
-        if (src.includes('logosokalcebo') || src.includes(WATERMARK_BASE64)) return;
-        if (imgId.startsWith('img_system_')) return;
+        if (!imgId.startsWith('img_') || imgId.startsWith('img_system_')) return;
         
         visitPhotoCount++;
         const base64 = src.split(',')[1] || src;
@@ -1538,6 +1574,17 @@ ${fullHtml}
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 Plantilla Oficial: Ppo-mail-2022.docx
               </p>
+              <span className="text-[10px] text-slate-350 no-print">|</span>
+              <a 
+                href="https://online-audio-converter.com/sp/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-[#009FE3] hover:text-[#006491] font-bold underline flex items-center gap-0.5 cursor-pointer no-print"
+                title="Comprime o convierte tu vídeo/audio si supera el límite de tamaño de subida"
+              >
+                <span className="material-symbols-outlined text-[10px] leading-none block">compress</span>
+                Reducir tamaño de vídeo/audio
+              </a>
               {syncStatus.type !== 'idle' && (
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide select-none ${
                   syncStatus.type === 'loading' ? 'bg-sky-100 text-[#009FE3] animate-pulse' :
