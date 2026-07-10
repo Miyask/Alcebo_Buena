@@ -1162,6 +1162,29 @@ ${fullHtml}
         return el ? el.textContent || fallback : fallback;
       };
 
+      const getImgDimensions = (imgId: string): { widthPt: number; heightPt: number } => {
+        const el = docEl.querySelector(`img[data-img-id="${imgId}"]`) as HTMLImageElement;
+        const defaultWidth = 360;
+        const defaultHeight = 240;
+        if (!el) return { widthPt: defaultWidth, heightPt: defaultHeight };
+
+        let pxWidth = el.clientWidth || el.naturalWidth || 550;
+        const styleWidth = el.style.width || el.getAttribute('width');
+        if (styleWidth) {
+          const parsed = parseInt(styleWidth);
+          if (!isNaN(parsed)) pxWidth = parsed;
+        }
+
+        const naturalWidth = el.naturalWidth || 600;
+        const naturalHeight = el.naturalHeight || 400;
+        const aspectRatio = naturalHeight / naturalWidth;
+
+        const widthPt = pxWidth * 0.75;
+        const heightPt = widthPt * aspectRatio;
+
+        return { widthPt, heightPt };
+      };
+
       const today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1428,12 +1451,13 @@ ${fullHtml}
       docXml = docXml.replace(/<w:p[^>]*>([\s\S]*?<w:t>Foto Muestra<\/w:t>[\s\S]*?)<\/w:p>/gi, (match) => {
         photoIdx++;
         if (photoIdx === 1 && images['img_template_2']) {
+          const { widthPt, heightPt } = getImgDimensions('img_template_2');
           return `
             <w:p>
               <w:pPr><w:jc w:val="center"/></w:pPr>
               <w:r>
                 <w:pict>
-                  <v:shape id="VisitPhoto1" style="width:360pt;height:240pt;" type="#_x0000_t75">
+                  <v:shape id="VisitPhoto1" style="width:${widthPt}pt;height:${heightPt}pt;" type="#_x0000_t75">
                     <v:imagedata r:id="rId25" o:title="Foto Inspeccion 1"/>
                   </v:shape>
                 </w:pict>
@@ -1442,12 +1466,13 @@ ${fullHtml}
           `;
         }
         if (photoIdx === 2 && images['img_template_3']) {
+          const { widthPt, heightPt } = getImgDimensions('img_template_3');
           return `
             <w:p>
               <w:pPr><w:jc w:val="center"/></w:pPr>
               <w:r>
                 <w:pict>
-                  <v:shape id="VisitPhoto2" style="width:360pt;height:240pt;" type="#_x0000_t75">
+                  <v:shape id="VisitPhoto2" style="width:${widthPt}pt;height:${heightPt}pt;" type="#_x0000_t75">
                     <v:imagedata r:id="rId26" o:title="Foto Inspeccion 2"/>
                   </v:shape>
                 </w:pict>

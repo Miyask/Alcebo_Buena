@@ -146,6 +146,10 @@
     margin: 0 !important;
     height: 0 !important;
   }
+  .editor-content-area hr.page-break::after {
+    display: none !important;
+    content: "" !important;
+  }
 }
 
 /* Specific centering for cover page elements */
