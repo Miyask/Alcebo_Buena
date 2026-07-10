@@ -626,51 +626,73 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           
           // Auto-fill extraction logic
           const textLower = data.text.toLowerCase();
+          const ai = data.aiParsed;
 
           // 1. Bird detection
           let detectedBird = 'Palomas';
-          if (textLower.includes('paloma')) detectedBird = 'Palomas';
-          else if (textLower.includes('golondrina')) detectedBird = 'Golondrinas';
-          else if (textLower.includes('urraca')) detectedBird = 'Urracas';
-          else if (textLower.includes('gaviota')) detectedBird = 'Gaviotas';
-          else if (textLower.includes('gorrion') || textLower.includes('gorrión')) detectedBird = 'Gorriones';
+          if (ai && ai.detectedBird) {
+            detectedBird = ai.detectedBird;
+          } else {
+            if (textLower.includes('paloma')) detectedBird = 'Palomas';
+            else if (textLower.includes('golondrina')) detectedBird = 'Golondrinas';
+            else if (textLower.includes('urraca')) detectedBird = 'Urracas';
+            else if (textLower.includes('gaviota')) detectedBird = 'Gaviotas';
+            else if (textLower.includes('gorrion') || textLower.includes('gorrión')) detectedBird = 'Gorriones';
+          }
           
           // 2. Systems detection (multiple)
-          const detectedSystemsList: string[] = [];
-          if (textLower.includes('red') || textLower.includes('malla')) detectedSystemsList.push('Red');
-          if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa') || textLower.includes('varillas')) {
-            detectedSystemsList.push('Varillas');
-          }
-          if (textLower.includes('eléctrico') || textLower.includes('electrostático') || textLower.includes('electrico')) {
-            detectedSystemsList.push('Eléctrico');
-          }
-          if (textLower.includes('captura') || textLower.includes('trampa') || textLower.includes('capturas')) {
-            detectedSystemsList.push('Capturas');
-          }
-          if (detectedSystemsList.length === 0) {
-            detectedSystemsList.push('Red');
+          let detectedSystemsList: string[] = [];
+          if (ai && ai.detectedSystems && ai.detectedSystems.length > 0) {
+            detectedSystemsList = ai.detectedSystems;
+          } else {
+            if (textLower.includes('red') || textLower.includes('malla')) detectedSystemsList.push('Red');
+            if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa') || textLower.includes('varillas')) {
+              detectedSystemsList.push('Varillas');
+            }
+            if (textLower.includes('eléctrico') || textLower.includes('electrostático') || textLower.includes('electrico')) {
+              detectedSystemsList.push('Eléctrico');
+            }
+            if (textLower.includes('captura') || textLower.includes('trampa') || textLower.includes('capturas')) {
+              detectedSystemsList.push('Capturas');
+            }
+            if (detectedSystemsList.length === 0) {
+              detectedSystemsList.push('Red');
+            }
           }
 
           // 3. Lineal meters extraction
           let detectedMeters = 15;
-          const matchMeters = textLower.match(/(\d+)\s*(metros|metro|m\b)/);
-          if (matchMeters && matchMeters[1]) {
-            detectedMeters = parseInt(matchMeters[1], 10);
+          if (ai && typeof ai.meters === 'number') {
+            detectedMeters = ai.meters;
             setMeters(detectedMeters);
+          } else {
+            const matchMeters = textLower.match(/(\d+)\s*(metros|metro|m\b)/);
+            if (matchMeters && matchMeters[1]) {
+              detectedMeters = parseInt(matchMeters[1], 10);
+              setMeters(detectedMeters);
+            }
           }
 
           // 4. Client Name extraction
           let detectedClient = 'COMUNIDAD DE PROPIETARIOS';
-          const matchClient = textLower.match(/(comunidad\s+(?:de\s+)?(?:propietarios\s+)?(?:de\s+)?[\w\sñáéíóúÁÉÍÓÚ]+?(?=\s+en\b|\s+calle\b|\s+nº\b|\s+\d+|\.|$))/i);
-          if (matchClient && matchClient[0]) {
-            detectedClient = matchClient[0].toUpperCase().trim();
+          if (ai && ai.clientName) {
+            detectedClient = ai.clientName.toUpperCase();
+          } else {
+            const matchClient = textLower.match(/(comunidad\s+(?:de\s+)?(?:propietarios\s+)?(?:de\s+)?[\w\sñáéíóúÁÉÍÓÚ]+?(?=\s+en\b|\s+calle\b|\s+nº\b|\s+\d+|\.|$))/i);
+            if (matchClient && matchClient[0]) {
+              detectedClient = matchClient[0].toUpperCase().trim();
+            }
           }
 
           // 5. Address extraction
           let detectedAddress = 'Calle Principal s/n';
-          const matchAddress = textLower.match(/(?:calle|avda|avenida|plaza|c\/)\s+[\w\sñáéíóúÁÉÍÓÚ\d,]+/i);
-          if (matchAddress && matchAddress[0]) {
-            detectedAddress = matchAddress[0].trim();
+          if (ai && ai.clientAddress) {
+            detectedAddress = ai.clientAddress;
+          } else {
+            const matchAddress = textLower.match(/(?:calle|avda|avenida|plaza|c\/)\s+[\w\sñáéíóúÁÉÍÓÚ\d,]+/i);
+            if (matchAddress && matchAddress[0]) {
+              detectedAddress = matchAddress[0].trim();
+            }
           }
  
           setSelectedBird(detectedBird);
@@ -692,12 +714,22 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           const z2 = primarySys === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
           const z3 = primarySys === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
           
-          const pcp = detectedAddress.match(/\b\d{5}\b/)?.[0] || '28001';
+          const pcp = (ai && ai.postalCode) || detectedAddress.match(/\b\d{5}\b/)?.[0] || '28001';
           const pcpPrefix = pcp.substring(0, 3) + '00';
           
           // Update input states (preserving manual prices and meters)
           setClientNameInput(detectedClient);
           setClientAddressInput(detectedAddress);
+
+          let p1_val = price1;
+          let p2_val = price2;
+          let p3_val = price3;
+
+          if (ai) {
+            if (ai.price1) { p1_val = ai.price1; setPrice1(ai.price1); }
+            if (ai.price2) { p2_val = ai.price2; setPrice2(ai.price2); }
+            if (ai.price3) { p3_val = ai.price3; setPrice3(ai.price3); }
+          }
           
           const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
           const templateWithPlaceholders = WORD_TEMPLATE_HTML
@@ -705,8 +737,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales\.<\/p>/gi, 
                      'en zonas rurales se concentran junto a explotaciones ganaderas para aprovechar los desechos animales.</p><div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
 
+          const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
+
+          const textForIntro = (ai && ai.introTecnica) || data.text;
+          const textForProblem = (ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.";
+          const textForDetail = (ai && ai.detalleAdicional) || "se observaron nidos construidos y obstrucciones en los conductos.";
+
           let freshHtml = templateWithPlaceholders
-            .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id}</span>`)
+            .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
             .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${detectedClient.toUpperCase()}</span>`)
             .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${detectedAddress}</span>`)
             .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">${pcp}</span>`)
@@ -718,15 +756,15 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
-            .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${data.text}</span>`)
-            .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">es la acumulación de excrementos y el con consiguiente deterioro estético e higiénico.</span>`)
-            .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">se observaron nidos construidos y obstrucciones en los conductos.</span>`)
+            .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
+            .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
+            .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
             .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
             .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
             .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
-            .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${price1}</span>`)
-            .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${price2}</span>`)
-            .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${price3}</span>`)
+            .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${p1_val}</span>`)
+            .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${p2_val}</span>`)
+            .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
             .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
             .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
             .replace(/\[DESCRIPCION_PLAGA\]/g, '')
