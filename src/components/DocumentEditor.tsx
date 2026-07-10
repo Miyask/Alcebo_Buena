@@ -1162,29 +1162,6 @@ ${fullHtml}
         return el ? el.textContent || fallback : fallback;
       };
 
-      const getImgDimensions = (imgId: string): { widthPt: number; heightPt: number } => {
-        const el = docEl.querySelector(`img[data-img-id="${imgId}"]`) as HTMLImageElement;
-        const defaultWidth = 360;
-        const defaultHeight = 240;
-        if (!el) return { widthPt: defaultWidth, heightPt: defaultHeight };
-
-        let pxWidth = el.clientWidth || el.naturalWidth || 550;
-        const styleWidth = el.style.width || el.getAttribute('width');
-        if (styleWidth) {
-          const parsed = parseInt(styleWidth);
-          if (!isNaN(parsed)) pxWidth = parsed;
-        }
-
-        const naturalWidth = el.naturalWidth || 600;
-        const naturalHeight = el.naturalHeight || 400;
-        const aspectRatio = naturalHeight / naturalWidth;
-
-        const widthPt = pxWidth * 0.75;
-        const heightPt = widthPt * aspectRatio;
-
-        return { widthPt, heightPt };
-      };
-
       const today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1240,30 +1217,62 @@ ${fullHtml}
         activeSystems: selectedSystems
       };
 
-      // 1. Extract base64 custom visit images from HTML img tags
+      // 1. Extract visit images and calculate dimensions directly using DOM API
       const images: Record<string, string> = {};
-      const imgRegex = /<img[^>]+src="data:image\/(jpeg|png);base64,([^"]+)"[^>]*data-img-id="([^"]+)"/gi;
-      let match;
-      while ((match = imgRegex.exec(htmlContent)) !== null) {
-        if (match[3].startsWith('img_template_')) {
-          images[match[3]] = match[2];
-        }
-      }
+      const imgDimensions: Record<string, { widthPt: number; heightPt: number }> = {};
+      const imgElements = docEl.querySelectorAll('img');
+      let visitPhotoCount = 0;
       
-      // Fallback: Map by order of appearance
-      const imgRawRegex = /<img[^>]+src="data:image\/(jpeg|png);base64,([^"]+)"/gi;
-      let idx = 0;
-      let matchRaw;
-      while ((matchRaw = imgRawRegex.exec(htmlContent)) !== null) {
-        idx++;
-        const base64 = matchRaw[2];
-        if (idx > 1) { // Skip logo
-          const imgId = `img_template_${idx}`;
-          if (!images[imgId]) {
-            images[imgId] = base64;
+      imgElements.forEach(img => {
+        const src = img.getAttribute('src') || '';
+        const imgId = img.getAttribute('data-img-id') || '';
+        
+        // Skip logo and system diagrams
+        if (src.includes('logosokalcebo') || src.includes(WATERMARK_BASE64)) return;
+        if (imgId.startsWith('img_system_')) return;
+        
+        visitPhotoCount++;
+        const base64 = src.split(',')[1] || src;
+        const key = `img_template_${visitPhotoCount + 1}`; // img_template_2, img_template_3
+        images[key] = base64;
+
+        // Extract width and aspect ratio dynamically
+        const container = img.closest('.image-container-block');
+        const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
+        
+        let pxWidth = 550;
+        if (slider && slider.value) {
+          pxWidth = parseInt(slider.value);
+        } else {
+          const styleWidth = img.style.width || img.getAttribute('width');
+          if (styleWidth) {
+            const parsed = parseInt(styleWidth);
+            if (!isNaN(parsed)) pxWidth = parsed;
           }
         }
-      }
+        if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 550;
+
+        let aspectRatio = 0.75;
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        if (naturalWidth && naturalHeight && naturalWidth > 0) {
+          aspectRatio = naturalHeight / naturalWidth;
+        } else {
+          const rect = img.getBoundingClientRect();
+          if (rect.width && rect.height && rect.width > 0) {
+            aspectRatio = rect.height / rect.width;
+          }
+        }
+        if (isNaN(aspectRatio) || aspectRatio <= 0) aspectRatio = 0.75;
+
+        const widthPt = pxWidth * 0.75;
+        const heightPt = widthPt * aspectRatio;
+
+        imgDimensions[key] = {
+          widthPt: parseFloat(widthPt.toFixed(1)),
+          heightPt: parseFloat(heightPt.toFixed(1))
+        };
+      });
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
@@ -1450,30 +1459,18 @@ ${fullHtml}
       let photoIdx = 0;
       docXml = docXml.replace(/<w:p[^>]*>([\s\S]*?<w:t>Foto Muestra<\/w:t>[\s\S]*?)<\/w:p>/gi, (match) => {
         photoIdx++;
-        if (photoIdx === 1 && images['img_template_2']) {
-          const { widthPt, heightPt } = getImgDimensions('img_template_2');
+        const key = `img_template_${photoIdx + 1}`;
+        const rId = photoIdx === 1 ? 'rId25' : 'rId26';
+        
+        if (images[key] && imgDimensions[key]) {
+          const { widthPt, heightPt } = imgDimensions[key];
           return `
             <w:p>
               <w:pPr><w:jc w:val="center"/></w:pPr>
               <w:r>
                 <w:pict>
-                  <v:shape id="VisitPhoto1" style="width:${widthPt}pt;height:${heightPt}pt;" type="#_x0000_t75">
-                    <v:imagedata r:id="rId25" o:title="Foto Inspeccion 1"/>
-                  </v:shape>
-                </w:pict>
-              </w:r>
-            </w:p>
-          `;
-        }
-        if (photoIdx === 2 && images['img_template_3']) {
-          const { widthPt, heightPt } = getImgDimensions('img_template_3');
-          return `
-            <w:p>
-              <w:pPr><w:jc w:val="center"/></w:pPr>
-              <w:r>
-                <w:pict>
-                  <v:shape id="VisitPhoto2" style="width:${widthPt}pt;height:${heightPt}pt;" type="#_x0000_t75">
-                    <v:imagedata r:id="rId26" o:title="Foto Inspeccion 2"/>
+                  <v:shape id="VisitPhoto${photoIdx}" style="width:${widthPt}pt;height:${heightPt}pt;" type="#_x0000_t75">
+                    <v:imagedata r:id="${rId}" o:title="Foto Inspeccion ${photoIdx}"/>
                   </v:shape>
                 </w:pict>
               </w:r>
