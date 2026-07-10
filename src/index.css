@@ -98,8 +98,50 @@
 }
 
 @media print {
+  /* Hide all app navigation, buttons, sidebars and headers */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  header, footer, nav, aside, button, .no-print, [role="toolbar"], .print-hidden {
+    display: none !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the print area and its contents */
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+  
+  /* Position the print area perfectly on the page */
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  
+  /* Remove backgrounds, shadows and border radius of the paper card for printing */
+  .print-area > div {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Support page breaks */
   .editor-content-area hr.page-break {
     page-break-before: always !important;
+    break-before: page !important;
     border: none !important;
     margin: 0 !important;
     height: 0 !important;

@@ -968,6 +968,168 @@ Transcripción:
     }
   };
 
+  // Export high-fidelity MHTML Word document (.doc) directly on the client-side
+  const handleExportMhtml = () => {
+    if (!editorRef.current) return;
+
+    const htmlContent = editorRef.current.innerHTML;
+    let extractedClient = quote.clientName;
+    const clientMatch = htmlContent.match(/Com\.\s*Prop\.\s*<strong>(.*?)<\/strong>/i);
+    if (clientMatch && clientMatch[1]) {
+      extractedClient = clientMatch[1].replace(/<[^>]+>/g, '').trim();
+    }
+
+    const currentQuote: Quote = {
+      ...quote,
+      clientName: extractedClient || 'Comunidad Editada',
+      clientAddress: clientAddressInput,
+      clientEmail: clientEmailInput,
+      estimationLineal: meters,
+      totalCost: parseFloat(price3) || 0,
+    };
+    
+    enviarAlSeguimiento(currentQuote);
+
+    // Clean up temporary UI elements in cloned HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    const noPrintElements = tempDiv.querySelectorAll('.no-print, .image-toolbar');
+    noPrintElements.forEach(el => el.remove());
+    
+    const editableElements = tempDiv.querySelectorAll('[contenteditable]');
+    editableElements.forEach(el => el.removeAttribute('contenteditable'));
+
+    const containers = tempDiv.querySelectorAll('.image-container-block');
+    containers.forEach(container => {
+      container.removeAttribute('style');
+      container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
+    });
+
+    const cleanHtmlContent = tempDiv.innerHTML;
+    
+    // Build full high-fidelity styled HTML document
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>100</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+          </w:WordDocument>
+        </xml>
+        <![endif]-->
+        <style>
+          @page {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.5cm 2.0cm;
+          }
+          body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333333;
+          }
+          p {
+            margin-bottom: 10pt;
+            text-align: justify;
+          }
+          h1, h2, h3, h4 {
+            color: #009FE3;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            margin-top: 18pt;
+            margin-bottom: 6pt;
+            page-break-after: avoid;
+          }
+          ul, ol {
+            margin-top: 0;
+            margin-bottom: 10pt;
+            padding-left: 20pt;
+          }
+          li {
+            margin-bottom: 4pt;
+            text-align: justify;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12pt;
+            margin-bottom: 12pt;
+          }
+          th, td {
+            border: 1px solid #bec8d2;
+            padding: 8pt;
+            font-size: 10pt;
+            text-align: left;
+            vertical-align: top;
+          }
+          th {
+            background-color: #009FE3;
+            color: #ffffff;
+            font-weight: bold;
+          }
+          .page-break {
+            page-break-before: always;
+            break-before: page;
+          }
+          .cover-page-wrapper {
+            text-align: center;
+            display: block;
+            margin-top: 100px;
+            margin-bottom: 100px;
+            page-break-after: always;
+          }
+          .image-wrapper, .image-container-block {
+            text-align: center;
+            margin: 20px auto;
+            display: block;
+            max-width: 580px;
+            page-break-inside: avoid;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #bec8d2;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+          }
+        </style>
+      </head>
+      <body>
+        ${cleanHtmlContent}
+      </body>
+      </html>
+    `;
+
+    // Package as MHTML Web Archive format for maximum MS Word styling compatibility
+    const mhtml = `MIME-Version: 1.0
+Content-Type: multipart/related; boundary="----boundary"
+
+------boundary
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+${fullHtml}
+------boundary--`;
+
+    const blob = new Blob([mhtml], { type: 'application/msword' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Presupuesto_${(extractedClient || 'Alcebo').replace(/\s+/g, '_')}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showToast('¡Word de alta fidelidad (.doc) descargado con éxito!');
+  };
+
   // Export high-fidelity DOCX using server-side html-to-docx converter
   const handleExportDocx = async () => {
     if (!editorRef.current) return;
@@ -1156,19 +1318,30 @@ Transcripción:
             </button>
             
             <button
-              onClick={handleExportDocx}
+              onClick={handleExportMhtml}
               className="flex-1 sm:flex-initial bg-[#009FE3] hover:bg-[#006491] text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#009fe3]/15 cursor-pointer active:scale-95"
+              title="Descarga un Word editable (.doc) que coincide exactamente con lo que ves en pantalla"
             >
               <span className="material-symbols-outlined text-sm">download</span>
-              Descargar Word (.docx)
+              Descargar Word (.doc - Vista Previa)
+            </button>
+
+            <button
+              onClick={handleExportDocx}
+              className="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+              title="Descarga la plantilla corporativa Ppo-mail-2022.docx rellena"
+            >
+              <span className="material-symbols-outlined text-sm">description</span>
+              Descargar Word (.docx - Plantilla)
             </button>
 
             <button
               onClick={() => window.print()}
               className="flex-1 sm:flex-initial bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              title="Imprime el presupuesto o guárdalo como PDF en tu ordenador"
             >
               <span className="material-symbols-outlined text-sm">print</span>
-              Imprimir
+              Imprimir / PDF
             </button>
           </div>
       </div>
@@ -1217,9 +1390,15 @@ Transcripción:
           />
         </div>
 
-        <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-base text-[#009FE3]">info</span>
-          Puedes escribir en cualquier párrafo del documento directamente.
+        <div className="flex flex-col items-end gap-1 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-base text-[#009FE3]">info</span>
+            <span>Puedes escribir en cualquier párrafo del documento directamente.</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-amber-600">
+            <span className="material-symbols-outlined text-base text-xs">warning</span>
+            <span>Tip: Para Imprimir/PDF con logotipo de fondo, activa "Gráficos de fondo".</span>
+          </div>
         </div>
       </div>
 
