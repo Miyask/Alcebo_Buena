@@ -1670,11 +1670,11 @@ ${fullHtml}
         return ''; // Delete the "Foto Muestra" placeholder text if no photo uploaded
       });
 
-      // 7. Force native page break before Section 6 (PRESUPUESTO Y GARANTÍAS)
-      const sec6ParagraphRegex = /<w:p[^>]*>([\s\S]*?<w:t[^>]*>6\.- PRESUPUESTO Y GARANTÍAS[\s\S]*?)<\/w:p>/gi;
-      docXml = docXml.replace(sec6ParagraphRegex, (match) => {
-        return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>` + match;
-      });
+      // 7. Clean up empty paragraphs and force clean native page break before Section 6 (PRESUPUESTO Y GARANTÍAS)
+      docXml = docXml.replace(/(?:<w:p[^>]*>\s*(?:<w:pPr>[\s\S]*?<\/w:pPr>)?\s*<\/w:p>\s*)+(?=<w:p[^>]*>[\s\S]*?6\.- PRESUPUESTO Y GARANTÍAS)/gi, '');
+
+      const sec6ParagraphRegex = /(<w:p[^>]*>[\s\S]*?<w:t[^>]*>6\.- PRESUPUESTO Y GARANTÍAS[\s\S]*?<\/w:p>)/gi;
+      docXml = docXml.replace(sec6ParagraphRegex, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1');
 
       // 8. Write modified XML back into zip
       zip.file('word/document.xml', docXml);
