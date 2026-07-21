@@ -97,6 +97,57 @@
   letter-spacing: 0.1em !important;
 }
 
+/* Prevent tables and table rows from breaking across pages */
+.editor-content-area table {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+.editor-content-area tr {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* Editable fields highlighting in editor */
+.editor-content-area .client-name-field,
+.editor-content-area .client-address-field,
+.editor-content-area .postal-code-field,
+.editor-content-area .postal-code-prefix-field,
+.editor-content-area .att-name-field,
+.editor-content-area .ref-code-field,
+.editor-content-area .plaga-field,
+.editor-content-area .zonas-afectadas-field,
+.editor-content-area .tecnico-field,
+.editor-content-area .telefono-field,
+.editor-content-area .price-field-1,
+.editor-content-area .price-field-2,
+.editor-content-area .price-field-3,
+.editor-content-area .day-field,
+.editor-content-area .month-field,
+.editor-content-area .year-field,
+.editor-content-area .transcription-field,
+.editor-content-area .problema-principal-field,
+.editor-content-area .detalle-adicional-field {
+  background-color: #fef9c3 !important;
+  border-bottom: 1.5px dashed #ca8a04 !important;
+  padding: 0 4px !important;
+  border-radius: 3px !important;
+  transition: all 0.2s ease !important;
+}
+
+.editor-content-area .client-name-field:hover,
+.editor-content-area .client-address-field:hover,
+.editor-content-area .ref-code-field:hover,
+.editor-content-area .price-field-1:hover,
+.editor-content-area .price-field-2:hover,
+.editor-content-area .price-field-3:hover,
+.editor-content-area .day-field:hover,
+.editor-content-area .month-field:hover,
+.editor-content-area .year-field:hover {
+  background-color: #fef08a !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.3) !important;
+}
+
 @media print {
   /* Hide all app navigation, buttons, sidebars and headers */
   body {
@@ -110,6 +161,32 @@
 
   body * {
     visibility: hidden;
+  }
+
+  /* Remove editable field highlights during print */
+  .editor-content-area .client-name-field,
+  .editor-content-area .client-address-field,
+  .editor-content-area .postal-code-field,
+  .editor-content-area .postal-code-prefix-field,
+  .editor-content-area .att-name-field,
+  .editor-content-area .ref-code-field,
+  .editor-content-area .plaga-field,
+  .editor-content-area .zonas-afectadas-field,
+  .editor-content-area .tecnico-field,
+  .editor-content-area .telefono-field,
+  .editor-content-area .price-field-1,
+  .editor-content-area .price-field-2,
+  .editor-content-area .price-field-3,
+  .editor-content-area .day-field,
+  .editor-content-area .month-field,
+  .editor-content-area .year-field,
+  .editor-content-area .transcription-field,
+  .editor-content-area .problema-principal-field,
+  .editor-content-area .detalle-adicional-field {
+    background-color: transparent !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
   
   /* Show only the print area and its contents */

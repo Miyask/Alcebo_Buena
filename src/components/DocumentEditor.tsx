@@ -6,6 +6,7 @@ import { WORD_TEMPLATE_HTML } from '../data/wordTemplateHtml';
 import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 import PizZip from 'pizzip';
 import { WORD_TEMPLATE_BASE64 } from '../data/wordTemplateBase64';
+import { BIRDS_DATA } from '../data/birdsData';
 
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
@@ -40,10 +41,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [editingImageUrl, setEditingImageUrl] = useState<string>('');
   
   // Selectors/parameters state for video extraction fallback bindings
-  const [selectedBird, setSelectedBird] = useState<string>((quote.birds && quote.birds[0]) || 'Palomas');
+  const [selectedBirds, setSelectedBirds] = useState<string[]>(quote.birds && quote.birds.length > 0 ? quote.birds : ['Palomas']);
+  const selectedBird = selectedBirds.join(', ') || 'Palomas';
   const [selectedSystems, setSelectedSystems] = useState<string[]>(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
   const selectedSystem = selectedSystems[0] || 'Red';
   const [meters, setMeters] = useState<number>(quote.estimationLineal || 15);
+  
+  const [quoteDate, setQuoteDate] = useState<string>(quote.date || new Date().toISOString().split('T')[0]);
   
   const [isProcessingVideo, setIsProcessingVideo] = useState<boolean>(false);
   const [videoProgress, setVideoProgress] = useState<number>(0);
@@ -163,18 +167,70 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     return html;
   };
 
+  const getBirdsHtml = (birdsList: string[]): string => {
+    if (!birdsList || birdsList.length === 0) return '';
+    let html = '';
+    birdsList.forEach(key => {
+      const bird = BIRDS_DATA.find(b => b.key.toLowerCase() === key.toLowerCase() || b.name.toLowerCase() === key.toLowerCase());
+      if (bird) {
+        html += `<div style="margin-bottom: 20px;">`;
+        html += `<h3 style="color: #009FE3; margin-top: 10px; margin-bottom: 6px; font-size: 12.5pt; font-weight: bold;">${bird.title}</h3>`;
+        const paragraphs = bird.text.split('\n\n');
+        paragraphs.forEach(p => {
+          if (p.trim()) {
+            html += `<p style="margin-bottom: 8px; text-align: justify;">${p.trim()}</p>`;
+          }
+        });
+        if (bird.images && bird.images.length > 0) {
+          html += `<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; margin-bottom: 14px; justify-content: center;">`;
+          bird.images.forEach((img) => {
+            html += `<div style="text-align: center;">`;
+            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 260px; max-height: 180px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: cover; display: block;" />`;
+            html += `</div>`;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      } else {
+        const rule = (rules && rules.length > 0 ? rules : DEFAULT_CONDITIONAL_TEXTS).find(r => r.birdType?.toLowerCase() === key.toLowerCase());
+        if (rule) {
+          html += `<div style="margin-bottom: 16px;"><p>${rule.textToInclude}</p></div>`;
+        }
+      }
+    });
+    return html;
+  };
+
+  const handleDateChange = (val: string) => {
+    setQuoteDate(val);
+    if (!val) return;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+      const dayStr = d.getDate().toString().padStart(2, '0');
+      const monthStr = monthNames[d.getMonth()];
+      const yearStr = d.getFullYear().toString().substring(2);
+
+      if (editorRef.current) {
+        editorRef.current.querySelectorAll('.day-field').forEach(el => { el.textContent = dayStr; });
+        editorRef.current.querySelectorAll('.month-field').forEach(el => { el.textContent = monthStr; });
+        editorRef.current.querySelectorAll('.year-field').forEach(el => { el.textContent = yearStr; });
+      }
+    }
+  };
+
   useEffect(() => {
     if (editorRef.current) {
       const desPlagaEl = editorRef.current.querySelector('.des-plaga-block');
       if (desPlagaEl) {
-        const allRules = (rules && rules.length > 0) ? rules : DEFAULT_CONDITIONAL_TEXTS;
-        const activeRule = allRules.find(r => r.birdType?.toLowerCase() === selectedBird.toLowerCase());
-        const plagaDescription = activeRule ? activeRule.textToInclude : '';
-        desPlagaEl.innerHTML = plagaDescription ? `<p>${plagaDescription}</p>` : '';
+        desPlagaEl.innerHTML = getBirdsHtml(selectedBirds);
       }
       
       editorRef.current.querySelectorAll('.plaga-field').forEach(el => {
-        el.textContent = selectedBird;
+        el.textContent = primaryBird;
       });
 
       const sistemasEl = editorRef.current.querySelector('.sistemas-block');
@@ -197,7 +253,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
       setEditorHtml(editorRef.current.innerHTML);
     }
-  }, [selectedBird, selectedSystems]);
+  }, [selectedBirds, selectedSystems]);
 
   const [price1, setPrice1] = useState<string>('300.00');
   const [price2, setPrice2] = useState<string>('150.00');
@@ -629,10 +685,11 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     
     const updated: Quote = {
       ...quote,
+      date: quoteDate,
       clientName: clientNameInput || extractedClient || 'Comunidad Editada',
       clientAddress: clientAddressInput,
       clientEmail: clientEmailInput,
-      birds: [selectedBird],
+      birds: selectedBirds,
       systems: selectedSystems,
       estimationLineal: meters,
       totalCost: parseFloat(price3) || 0,
@@ -1216,7 +1273,7 @@ ${fullHtml}
       const p2_val = quote.price2 || price2;
       const p3_val = quote.price3 || price3;
 
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
+      const finalRefCode = quote.refCode || 'Ref-ALC-[RELLENAR]';
 
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
@@ -1255,6 +1312,7 @@ ${fullHtml}
       // 1. Extract visit images and calculate dimensions directly using DOM API
       const images: Record<string, string> = {};
       const imgDimensions: Record<string, { widthPt: number; heightPt: number }> = {};
+      const imgExtensions: Record<string, string> = {};
       const imgElements = docEl.querySelectorAll('img');
       let visitPhotoCount = 0;
       
@@ -1269,6 +1327,7 @@ ${fullHtml}
         const base64 = src.split(',')[1] || src;
         const key = `img_template_${visitPhotoCount + 1}`; // img_template_2, img_template_3
         images[key] = base64;
+        imgExtensions[key] = (src.includes('image/png') || src.includes('png;base64')) ? 'png' : 'jpeg';
 
         // Extract width and aspect ratio dynamically
         const container = img.closest('.image-container-block');
@@ -1311,6 +1370,16 @@ ${fullHtml}
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
+      let relsXml = zip.file('word/_rels/document.xml.rels').asText();
+
+      // Parse existing relationship IDs to guarantee unique rIds for Word 2013
+      const relIds: number[] = [];
+      const idMatchRegex = /Id="rId(\d+)"/g;
+      let rMatch: RegExpExecArray | null;
+      while ((rMatch = idMatchRegex.exec(relsXml)) !== null) {
+        relIds.push(parseInt(rMatch[1], 10));
+      }
+      let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
 
       // 3. Modify XML placeholders
       let atIdx = 0;
@@ -1372,7 +1441,38 @@ ${fullHtml}
         return match;
       });
 
-      // 4. Inject plaga description
+      // 4. Inject plaga description and bird images
+      const birdImageParagraphs: string[] = [];
+      selectedBirds.forEach(birdKey => {
+        const bird = BIRDS_DATA.find(b => b.key.toLowerCase() === birdKey.toLowerCase() || b.name.toLowerCase() === birdKey.toLowerCase());
+        if (bird && bird.images && bird.images.length > 0) {
+          bird.images.forEach((bImg, idx) => {
+            const bRelId = `rId${nextRelIdNum++}`;
+            const ext = bImg.mime.includes('png') ? 'png' : 'jpeg';
+            const bTargetPath = `media/bird_${birdKey.replace(/\s+/g, '_')}_${idx}.${ext}`;
+            
+            relsXml = relsXml.replace(
+              '</Relationships>',
+              `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
+            );
+            zip.file(`word/${bTargetPath}`, atob(bImg.base64), { binary: true });
+
+            birdImageParagraphs.push(`
+              <w:p>
+                <w:pPr><w:jc w:val="center"/></w:pPr>
+                <w:r>
+                  <w:pict>
+                    <v:shape id="BirdPhoto_${birdKey}_${idx}" style="width:240pt;height:160pt;" type="#_x0000_t75">
+                      <v:imagedata r:id="${bRelId}" o:title="${bird.name}"/>
+                    </v:shape>
+                  </w:pict>
+                </w:r>
+              </w:p>
+            `);
+          });
+        }
+      });
+
       if (variables.plagaDescription) {
         const birdAnchorRegex = /<w:p[^>]*>[\s\S]*?aprovechar los desechos animales[\s\S]*?<\/w:p>/i;
         const lines = variables.plagaDescription.split('\n').filter(l => l.trim().length > 0);
@@ -1384,7 +1484,7 @@ ${fullHtml}
           </w:p>
         `).join('');
         
-        docXml = docXml.replace(birdAnchorRegex, (match) => match + xmlParagraphs);
+        docXml = docXml.replace(birdAnchorRegex, (match) => match + xmlParagraphs + birdImageParagraphs.join(''));
       }
 
       // 5. Remove unproposed systems
@@ -1478,15 +1578,21 @@ ${fullHtml}
         });
       }
 
-      // 6. Inject custom visit photos dynamically inside XML by appending relationships
-      let relsXml = zip.file('word/_rels/document.xml.rels').asText();
+      // 6. Inject custom visit photos dynamically inside XML by appending unique relationships
+      const visitRelIds: string[] = [];
       if (images['img_template_2']) { // Visit photo 1
-        relsXml = relsXml.replace('</Relationships>', '<Relationship Id="rId25" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image5.jpeg"/></Relationships>');
-        zip.file('word/media/image5.jpeg', atob(images['img_template_2']), { binary: true });
+        const rId1 = `rId${nextRelIdNum++}`;
+        const ext1 = imgExtensions['img_template_2'] || 'jpeg';
+        visitRelIds.push(rId1);
+        relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_1.${ext1}"/></Relationships>`);
+        zip.file(`word/media/visit_photo_1.${ext1}`, atob(images['img_template_2']), { binary: true });
       }
       if (images['img_template_3']) { // Visit photo 2
-        relsXml = relsXml.replace('</Relationships>', '<Relationship Id="rId26" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image6.jpeg"/></Relationships>');
-        zip.file('word/media/image6.jpeg', atob(images['img_template_3']), { binary: true });
+        const rId2 = `rId${nextRelIdNum++}`;
+        const ext2 = imgExtensions['img_template_3'] || 'jpeg';
+        visitRelIds.push(rId2);
+        relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_2.${ext2}"/></Relationships>`);
+        zip.file(`word/media/visit_photo_2.${ext2}`, atob(images['img_template_3']), { binary: true });
       }
       zip.file('word/_rels/document.xml.rels', relsXml);
 
@@ -1494,9 +1600,9 @@ ${fullHtml}
       docXml = docXml.replace(/<w:p[^>]*>([\s\S]*?<w:t>Foto Muestra<\/w:t>[\s\S]*?)<\/w:p>/gi, (match) => {
         photoIdx++;
         const key = `img_template_${photoIdx + 1}`;
-        const rId = photoIdx === 1 ? 'rId25' : 'rId26';
+        const rId = visitRelIds[photoIdx - 1];
         
-        if (images[key] && imgDimensions[key]) {
+        if (images[key] && imgDimensions[key] && rId) {
           const { widthPt, heightPt } = imgDimensions[key];
           return `
             <w:p>
@@ -1514,7 +1620,13 @@ ${fullHtml}
         return ''; // Delete the "Foto Muestra" placeholder text if no photo uploaded
       });
 
-      // 7. Write modified XML back into zip
+      // 7. Force native page break before Section 6 (PRESUPUESTO Y GARANTÍAS)
+      const sec6ParagraphRegex = /<w:p[^>]*>([\s\S]*?<w:t[^>]*>6\.- PRESUPUESTO Y GARANTÍAS[\s\S]*?)<\/w:p>/gi;
+      docXml = docXml.replace(sec6ParagraphRegex, (match) => {
+        return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>` + match;
+      });
+
+      // 8. Write modified XML back into zip
       zip.file('word/document.xml', docXml);
 
       // 8. Generate DOCX file blob and download it
@@ -1781,20 +1893,41 @@ ${fullHtml}
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Tipo de Ave-Plaga</label>
-                <select
-                  value={selectedBird}
-                  onChange={(e) => setSelectedBird(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors bg-white cursor-pointer"
-                >
-                  <option value="Palomas">Palomas (Columba livia)</option>
-                  <option value="Gorriones">Gorriones (Passer domesticus)</option>
-                  <option value="Cigüeñas">Cigüeñas (Ciconia ciconia)</option>
-                  <option value="Gaviotas">Gaviotas (Laridae)</option>
-                  <option value="Cotorras">Cotorras (Invasoras)</option>
-                  <option value="Golondrinas">Golondrinas (Protegida)</option>
-                  <option value="Urracas">Urracas (Pica pica)</option>
-                </select>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">📅 Fecha del Presupuesto</label>
+                <input
+                  type="date"
+                  value={quoteDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">🦅 Aves Detectadas / A Tratar (Múltiple)</label>
+                <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200/50 max-h-48 overflow-y-auto">
+                  {BIRDS_DATA.map((bird) => {
+                    const isChecked = selectedBirds.includes(bird.key);
+                    return (
+                      <label key={bird.key} className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none py-0.5 hover:text-[#009FE3] transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedBirds([...selectedBirds, bird.key]);
+                            } else {
+                              if (selectedBirds.length > 1) {
+                                setSelectedBirds(selectedBirds.filter(b => b !== bird.key));
+                              }
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-[#009FE3] focus:ring-[#009FE3] border-slate-350"
+                        />
+                        <span>{bird.title}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               
               <div>
