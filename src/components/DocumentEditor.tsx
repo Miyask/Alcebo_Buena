@@ -1373,6 +1373,28 @@ ${fullHtml}
       let docXml = zip.file('word/document.xml').asText();
       let relsXml = zip.file('word/_rels/document.xml.rels').asText();
 
+      // Ensure [Content_Types].xml includes all image extensions for Word 2013
+      let contentTypesXml = zip.file('[Content_Types].xml').asText();
+      if (!contentTypesXml.includes('Extension="jpg"')) {
+        contentTypesXml = contentTypesXml.replace(
+          '</Types>',
+          '<Default Extension="jpg" ContentType="image/jpeg"/></Types>'
+        );
+        zip.file('[Content_Types].xml', contentTypesXml);
+      }
+
+      // Replace external network-pest.co.uk rId13 link with a 100% local offline image
+      if (IMAGE_RED_BASE64) {
+        const redData = IMAGE_RED_BASE64.split(',')[1];
+        if (redData) {
+          zip.file('word/media/image_red_local.jpeg', atob(redData), { binary: true });
+          relsXml = relsXml.replace(
+            /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
+            '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
+          );
+        }
+      }
+
       // Parse existing relationship IDs to guarantee unique rIds for Word 2013
       const relIds: number[] = [];
       const idMatchRegex = /Id="rId(\d+)"/g;
