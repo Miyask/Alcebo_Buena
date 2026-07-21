@@ -174,19 +174,19 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     birdsList.forEach(key => {
       const bird = BIRDS_DATA.find(b => b.key.toLowerCase() === key.toLowerCase() || b.name.toLowerCase() === key.toLowerCase());
       if (bird) {
-        html += `<div style="margin-bottom: 20px;">`;
-        html += `<h3 style="color: #009FE3; margin-top: 10px; margin-bottom: 6px; font-size: 12.5pt; font-weight: bold;">${bird.title}</h3>`;
+        html += `<div style="margin-bottom: 22px; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1;">`;
+        html += `<h3 style="color: #009FE3; margin-top: 10px; margin-bottom: 8px; font-size: 13pt; font-weight: bold;">${bird.title}</h3>`;
         const paragraphs = bird.text.split('\n\n');
         paragraphs.forEach(p => {
           if (p.trim()) {
-            html += `<p style="margin-bottom: 8px; text-align: justify;">${p.trim()}</p>`;
+            html += `<p style="margin-bottom: 8px; text-align: justify; line-height: 1.6; font-size: 11pt; color: #334155;">${p.trim()}</p>`;
           }
         });
         if (bird.images && bird.images.length > 0) {
-          html += `<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; margin-bottom: 14px; justify-content: center;">`;
+          html += `<div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; margin-bottom: 14px; justify-content: center;">`;
           bird.images.forEach((img) => {
-            html += `<div style="text-align: center;">`;
-            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 260px; max-height: 180px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: cover; display: block;" />`;
+            html += `<div style="text-align: center; background: #ffffff; padding: 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #cbd5e1;">`;
+            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 320px; max-height: 220px; border-radius: 6px; object-fit: cover; display: block;" />`;
             html += `</div>`;
           });
           html += `</div>`;
@@ -195,7 +195,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       } else {
         const rule = (rules && rules.length > 0 ? rules : DEFAULT_CONDITIONAL_TEXTS).find(r => r.birdType?.toLowerCase() === key.toLowerCase());
         if (rule) {
-          html += `<div style="margin-bottom: 16px;"><p>${rule.textToInclude}</p></div>`;
+          html += `<div style="margin-bottom: 16px;"><p style="text-align: justify; line-height: 1.6;">${rule.textToInclude}</p></div>`;
         }
       }
     });
@@ -1514,38 +1514,76 @@ ${fullHtml}
         `;
       };
 
-      const birdImageParagraphs: string[] = [];
+      // 4. Inject plaga descriptions and bird images using native DrawingML for Word 2013
+      let fullBirdsXml = '';
       selectedBirds.forEach(birdKey => {
         const bird = BIRDS_DATA.find(b => b.key.toLowerCase() === birdKey.toLowerCase() || b.name.toLowerCase() === birdKey.toLowerCase());
-        if (bird && bird.images && bird.images.length > 0) {
-          bird.images.forEach((bImg, idx) => {
-            const bRelId = `rId${nextRelIdNum++}`;
-            const ext = bImg.mime.includes('png') ? 'png' : 'jpeg';
-            const bTargetPath = `media/bird_${birdKey.replace(/\s+/g, '_')}_${idx}.${ext}`;
-            
-            relsXml = relsXml.replace(
-              '</Relationships>',
-              `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
-            );
-            zip.file(`word/${bTargetPath}`, atob(bImg.base64), { binary: true });
+        if (bird) {
+          // Bird Sub-heading Title
+          fullBirdsXml += `
+            <w:p>
+              <w:pPr>
+                <w:jc w:val="both"/>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+                  <w:b/>
+                  <w:color w:val="009FE3"/>
+                  <w:sz w:val="24"/>
+                </w:rPr>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+                  <w:b/>
+                  <w:color w:val="009FE3"/>
+                  <w:sz w:val="24"/>
+                </w:rPr>
+                <w:t>${bird.title}</w:t>
+              </w:r>
+            </w:p>
+          `;
 
-            birdImageParagraphs.push(createDrawingMLXml(bRelId, 240, 160, bird.name));
+          // Bird Text Paragraphs
+          const textParas = bird.text.split('\n\n');
+          textParas.forEach(pText => {
+            if (pText.trim()) {
+              fullBirdsXml += `
+                <w:p>
+                  <w:pPr>
+                    <w:jc w:val="both"/>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
+                    <w:t>${pText.trim()}</w:t>
+                  </w:r>
+                </w:p>
+              `;
+            }
           });
+
+          // Bird Images directly under its text!
+          if (bird.images && bird.images.length > 0) {
+            bird.images.forEach((bImg, idx) => {
+              const bRelId = `rId${nextRelIdNum++}`;
+              const ext = bImg.mime.includes('png') ? 'png' : 'jpeg';
+              const bTargetPath = `media/bird_${birdKey.replace(/\s+/g, '_')}_${idx}.${ext}`;
+              
+              relsXml = relsXml.replace(
+                '</Relationships>',
+                `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
+              );
+              zip.file(`word/${bTargetPath}`, atob(bImg.base64), { binary: true });
+
+              fullBirdsXml += createDrawingMLXml(bRelId, 240, 160, bird.name);
+            });
+          }
         }
       });
 
-      if (variables.plagaDescription) {
+      if (fullBirdsXml) {
         const birdAnchorRegex = /<w:p[^>]*>[\s\S]*?aprovechar los desechos animales[\s\S]*?<\/w:p>/i;
-        const lines = variables.plagaDescription.split('\n').filter(l => l.trim().length > 0);
-        const xmlParagraphs = lines.map(line => `
-          <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-            <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
-              <w:t>${line}</w:t>
-            </w:r>
-          </w:p>
-        `).join('');
-        
-        docXml = docXml.replace(birdAnchorRegex, (match) => match + xmlParagraphs + birdImageParagraphs.join(''));
+        docXml = docXml.replace(birdAnchorRegex, (match) => match + fullBirdsXml);
       }
 
       // 5. Remove unproposed systems
