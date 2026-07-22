@@ -94,10 +94,10 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             </button>
             <div style="display:flex; align-items:center; gap:6px; border-left:1px solid rgba(255,255,255,0.2); border-right:1px solid rgba(255,255,255,0.2); padding:0 10px;">
               <span style="font-weight:bold;">Tamaño:</span>
-              <input type="range" min="150" max="650" step="5" value="550" oninput="window.resizeImageDOM('${imgId}', this.value)" onchange="window.resizeImageSync('${imgId}', this.value)" style="width:80px; accent-color:#009FE3; cursor:pointer; height:4px; border-radius:2px;" />
+              <input type="range" min="150" max="650" step="5" value="280" oninput="window.resizeImageDOM('${imgId}', this.value)" onchange="window.resizeImageSync('${imgId}', this.value)" style="width:80px; accent-color:#009FE3; cursor:pointer; height:4px; border-radius:2px;" />
             </div>
           </div>
-          <img src="data:image/${type};base64,${base64}" class="document-image" data-img-id="${imgId}" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+          <img src="data:image/${type};base64,${base64}" class="document-image" data-img-id="${imgId}" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
           <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;">
             ${caption}<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
           </div>
@@ -131,7 +131,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           <li>Cada hebra se forma por 3 filamentos dobles, confiriendo una resistencia muy superior a la necesaria y un diámetro de fibras que impide a las palomas posarse sobre la red.</li>
           <li>El diámetro del rombo de la red de paloma (50 mm.) impide que las palomas pasen a su través sin disminuir la luminosidad ni la ventilación natural.</li>
         </ul>
-        <img src="${IMAGE_RED_BASE64}" class="document-image" data-img-id="img_system_red" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+        <img src="${IMAGE_RED_BASE64}" class="document-image" data-img-id="img_system_red" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       `;
     }
     if (activeSystems.includes('Varillas')) {
@@ -142,7 +142,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           <li>Punta roma de baja reflectancia que no daña a las aves pero impide su posado.</li>
           <li>Fijación con adhesivo sellador de poliuretano de exteriores.</li>
         </ul>
-        <img src="${IMAGE_VARILLAS_BASE64}" class="document-image" data-img-id="img_system_varillas" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+        <img src="${IMAGE_VARILLAS_BASE64}" class="document-image" data-img-id="img_system_varillas" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       `;
     }
     if (activeSystems.includes('Eléctrico')) {
@@ -547,14 +547,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         
         <div style="display:flex; align-items:center; gap:6px; border-left:1px solid rgba(255,255,255,0.2); border-right:1px solid rgba(255,255,255,0.2); padding:0 10px;">
           <span style="font-weight:bold;">Tamaño:</span>
-          <input type="range" min="150" max="650" step="5" value="550" oninput="window.resizeImageDOM('${imgId}', this.value)" onchange="window.resizeImageSync('${imgId}', this.value)" style="width:80px; accent-color:#009FE3; cursor:pointer; height:4px; border-radius:2px;" />
+          <input type="range" min="150" max="650" step="5" value="280" oninput="window.resizeImageDOM('${imgId}', this.value)" onchange="window.resizeImageSync('${imgId}', this.value)" style="width:80px; accent-color:#009FE3; cursor:pointer; height:4px; border-radius:2px;" />
         </div>
         
         <button type="button" onclick="window.deleteImage('${imgId}')" style="background:#EF4444; color:white; border:none; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:sans-serif; transition:all 0.2s;">
           🗑️ Eliminar
         </button>
       </div>
-      <img src="${base64Url}" class="document-image" data-img-id="${imgId}" style="width:550px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
+      <img src="${base64Url}" class="document-image" data-img-id="${imgId}" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;" placeholder="Escribe un pie de foto...">
         Fig: Plano de obra (${filename})<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
       </div>
@@ -1108,7 +1108,7 @@ Transcripción:
       const container = originalImg?.closest('.image-container-block');
       const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
       
-      let pxWidth = 550;
+      let pxWidth = 280;
       if (slider && slider.value) {
         pxWidth = parseInt(slider.value);
       } else {
@@ -1118,7 +1118,7 @@ Transcripción:
           if (!isNaN(parsed)) pxWidth = parsed;
         }
       }
-      if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 550;
+      if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 280;
 
       let aspectRatio = 0.75;
       const naturalWidth = img.naturalWidth;
@@ -1366,7 +1366,7 @@ ${fullHtml}
         const container = img.closest('.image-container-block');
         const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
         
-        let pxWidth = 550;
+        let pxWidth = 280;
         if (slider && slider.value) {
           pxWidth = parseInt(slider.value);
         } else {
@@ -1376,7 +1376,7 @@ ${fullHtml}
             if (!isNaN(parsed)) pxWidth = parsed;
           }
         }
-        if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 550;
+        if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 280;
 
         let aspectRatio = 0.75;
         const naturalWidth = img.naturalWidth;
