@@ -802,6 +802,7 @@ JSON keys:
 - "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
 - "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
 - "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
+- "date": Fecha mencionada de la inspección o visita en formato "YYYY-MM-DD" si se nombra en la transcripción (ej. "2026-07-21"). Si no se nombra, deja este campo vacío o null.
 
 Transcripción:
 "${transcriptionText}"`;
@@ -917,12 +918,43 @@ Transcripción:
               detectedAddress = matchAddress[0].trim();
             }
           }
+
+          // 6. Date extraction
+          let detectedDate = new Date().toISOString().split('T')[0];
+          if (ai && ai.date) {
+            const parsedD = new Date(ai.date);
+            if (!isNaN(parsedD.getTime())) {
+              detectedDate = ai.date;
+            }
+          } else {
+            const dateRegex = /\b(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
+            const matchDate = data.text.match(dateRegex);
+            if (matchDate) {
+              const day = matchDate[1];
+              const monthTextOrNum = matchDate[2].toLowerCase();
+              let year = matchDate[3];
+              if (year.length === 2) year = '20' + year;
+              
+              const monthMap: Record<string, string> = {
+                'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
+                'julio': '07', 'agosto': '08', 'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+              };
+              
+              const month = monthMap[monthTextOrNum] || monthTextOrNum.padStart(2, '0');
+              const formattedDate = `${year}-${month}-${day.padStart(2, '0')}`;
+              const parsedD = new Date(formattedDate);
+              if (!isNaN(parsedD.getTime())) {
+                detectedDate = formattedDate;
+              }
+            }
+          }
+          setQuoteDate(detectedDate);
  
           setSelectedBirds([detectedBird]);
           setSelectedSystems(detectedSystemsList);
  
           // Re-initialize from template to ensure clean replacements
-          const today = new Date();
+          const today = new Date(detectedDate);
           const monthNames = [
             'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'

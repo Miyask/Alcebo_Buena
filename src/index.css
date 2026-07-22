@@ -150,13 +150,21 @@
 
 @media print {
   /* Hide all app navigation, buttons, sidebars and headers */
+  header, footer, nav, aside, button, .no-print, [role="toolbar"], .print-hidden,
+  .lg\:w-\[320px\],
+  input, select, textarea {
+    display: none !important;
+  }
+
   body {
     background: white !important;
     color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
-  header, footer, nav, aside, button, .no-print, [role="toolbar"], .print-hidden {
-    display: none !important;
+  #root, .flex {
+    display: block !important;
   }
 
   body * {
