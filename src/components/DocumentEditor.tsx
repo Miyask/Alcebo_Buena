@@ -1369,6 +1369,17 @@ ${fullHtml}
         return el ? el.textContent || fallback : fallback;
       };
 
+      const cleanBase64 = (str: string): string => {
+        if (!str) return '';
+        let cleaned = str.replace(/\s/g, '').replace(/ /g, '+');
+        if (cleaned.includes('%')) {
+          try {
+            cleaned = decodeURIComponent(cleaned);
+          } catch (e) {}
+        }
+        return cleaned.replace(/\s/g, '').replace(/ /g, '+');
+      };
+
       const today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1439,10 +1450,10 @@ ${fullHtml}
         if (!imgId.startsWith('img_') || imgId.startsWith('img_system_')) return;
         
         visitPhotoCount++;
-        const base64 = src.split(',')[1] || src;
+        const base64 = cleanBase64(src.split(',')[1] || src);
         const key = `img_template_${visitPhotoCount + 1}`; // img_template_2, img_template_3
         images[key] = base64;
-        imgExtensions[key] = (src.includes('image/png') || src.includes('png;base64')) ? 'png' : 'jpeg';
+        imgExtensions[key] = (src.includes('image/png') || src.includes('png;base64') || base64.startsWith('iVBORw')) ? 'png' : 'jpeg';
 
         // Extract width and aspect ratio dynamically
         const container = img.closest('.image-container-block');
@@ -1798,14 +1809,14 @@ ${fullHtml}
         const ext1 = imgExtensions['img_template_2'] || 'jpeg';
         visitRelIds.push(rId1);
         relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_1.${ext1}"/></Relationships>`);
-        zip.file(`word/media/visit_photo_1.${ext1}`, atob(images['img_template_2']), { binary: true });
+        zip.file(`word/media/visit_photo_1.${ext1}`, atob(cleanBase64(images['img_template_2'])), { binary: true });
       }
       if (images['img_template_3']) { // Visit photo 2
         const rId2 = `rId${nextRelIdNum++}`;
         const ext2 = imgExtensions['img_template_3'] || 'jpeg';
         visitRelIds.push(rId2);
         relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_2.${ext2}"/></Relationships>`);
-        zip.file(`word/media/visit_photo_2.${ext2}`, atob(images['img_template_3']), { binary: true });
+        zip.file(`word/media/visit_photo_2.${ext2}`, atob(cleanBase64(images['img_template_3'])), { binary: true });
       }
       zip.file('word/_rels/document.xml.rels', relsXml);
 
