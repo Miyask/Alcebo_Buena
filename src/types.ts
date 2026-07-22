@@ -21,6 +21,7 @@ export interface Quote {
   price1?: string;
   price2?: string;
   price3?: string;
+  templateId?: string;
 }
 
 export interface Template {

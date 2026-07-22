@@ -60,53 +60,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   // Feature 3: Auto-save status state
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved');
 
-  // Debounced auto-save effect
-  useEffect(() => {
-    if (saveStatus !== 'dirty') return;
 
-    const timer = setTimeout(() => {
-      setSaveStatus('saving');
-      handleSaveAndSync(true);
-      setSaveStatus('saved');
-    }, 3000); // Auto-save 3 seconds after user stops modifying
-
-    return () => clearTimeout(timer);
-  }, [editorHtml, saveStatus]);
-
-  // Track state changes to mark document as dirty
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    setSaveStatus('dirty');
-  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3]);
-
-  // Feature 5: Apply base template to editor DOM fields
-  const handleApplyTemplate = (tempId: string) => {
-    const temp = templates.find(t => t.id === tempId);
-    if (!temp) return;
-    
-    setSelectedTemplateId(tempId);
-    setSelectedSystems(temp.systems);
-    
-    if (editorRef.current) {
-      const introEl = editorRef.current.querySelector('.transcription-field');
-      if (introEl) {
-        introEl.textContent = temp.introText;
-      }
-      
-      const footerEl = editorRef.current.querySelector('.detalle-adicional-field');
-      if (footerEl) {
-        footerEl.textContent = temp.footerText;
-      }
-      
-      setEditorHtml(editorRef.current.innerHTML);
-      setSaveStatus('dirty');
-    }
-    showToast(`Plantilla "${temp.name}" aplicada al documento.`);
-  };
 
   const cleanIntroText = (text: string): string => {
     if (!text) return '';
@@ -313,6 +267,54 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [price1, setPrice1] = useState<string>('300.00');
   const [price2, setPrice2] = useState<string>('150.00');
   const [price3, setPrice3] = useState<string>('450.00');
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (saveStatus !== 'dirty') return;
+
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      handleSaveAndSync(true);
+      setSaveStatus('saved');
+    }, 3000); // Auto-save 3 seconds after user stops modifying
+
+    return () => clearTimeout(timer);
+  }, [editorHtml, saveStatus]);
+
+  // Track state changes to mark document as dirty
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setSaveStatus('dirty');
+  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3]);
+
+  // Feature 5: Apply base template to editor DOM fields
+  const handleApplyTemplate = (tempId: string) => {
+    const temp = templates.find(t => t.id === tempId);
+    if (!temp) return;
+    
+    setSelectedTemplateId(tempId);
+    setSelectedSystems(temp.systems);
+    
+    if (editorRef.current) {
+      const introEl = editorRef.current.querySelector('.transcription-field');
+      if (introEl) {
+        introEl.textContent = temp.introText;
+      }
+      
+      const footerEl = editorRef.current.querySelector('.detalle-adicional-field');
+      if (footerEl) {
+        footerEl.textContent = temp.footerText;
+      }
+      
+      setEditorHtml(editorRef.current.innerHTML);
+      setSaveStatus('dirty');
+    }
+    showToast(`Plantilla "${temp.name}" aplicada al documento.`);
+  };
 
   const handleClientNameChange = (val: string) => {
     setClientNameInput(val);
