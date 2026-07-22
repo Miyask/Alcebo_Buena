@@ -1786,7 +1786,7 @@ ${fullHtml}
       )}
 
       {/* Editor Header Panel with Main controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
           <button 
             onClick={onCancel}
@@ -1884,7 +1884,7 @@ ${fullHtml}
       </div>
 
       {/* Editor Formatting Toolbar */}
-      <div className="bg-slate-100 border border-slate-200/80 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      <div className="no-print bg-slate-100 border border-slate-200/80 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleFormat('bold')}
@@ -2004,7 +2004,7 @@ ${fullHtml}
         </div>
 
         {/* Right Side: Configuration & Parameters panel */}
-        <div className="w-full lg:w-[320px] shrink-0 space-y-6">
+        <div className="no-print w-full lg:w-[320px] shrink-0 space-y-6">
           {/* Technical Configuration Form */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">

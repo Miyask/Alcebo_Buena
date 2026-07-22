@@ -149,26 +149,38 @@
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 20mm 15mm 20mm 15mm !important;
+  }
+
   /* Hide all app navigation, buttons, sidebars and headers */
   header, footer, nav, aside, button, .no-print, [role="toolbar"], .print-hidden,
   .lg\:w-\[320px\],
-  input, select, textarea {
+  input, select, textarea,
+  .image-toolbar,
+  .editor-formatting-toolbar,
+  .toast-alert {
     display: none !important;
   }
 
-  body {
+  body, html {
     background: white !important;
     color: black !important;
+    height: auto !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
   }
   
-  #root, .flex {
+  #root, .flex, .flex-row, .flex-col, .flex-1, main {
     display: block !important;
-  }
-
-  body * {
-    visibility: hidden;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   /* Remove editable field highlights during print */
@@ -197,17 +209,12 @@
     box-shadow: none !important;
   }
   
-  /* Show only the print area and its contents */
-  .print-area, .print-area * {
-    visibility: visible;
-  }
-  
-  /* Position the print area perfectly on the page */
+  /* The print area container flows naturally */
   .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
@@ -221,12 +228,14 @@
     border-radius: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
+    background: transparent !important;
   }
 
   /* Support page breaks */
   .editor-content-area hr.page-break {
     page-break-before: always !important;
     break-before: page !important;
+    display: block !important;
     border: none !important;
     margin: 0 !important;
     height: 0 !important;
