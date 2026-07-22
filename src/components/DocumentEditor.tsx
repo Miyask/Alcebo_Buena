@@ -53,6 +53,60 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [isProcessingVideo, setIsProcessingVideo] = useState<boolean>(false);
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [customText, setCustomText] = useState<string>(quote.text || '');
+  
+  // Feature 5: Template selection state
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(quote.templateId || templates[0]?.id || 'temp-red');
+  
+  // Feature 3: Auto-save status state
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved');
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (saveStatus !== 'dirty') return;
+
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      handleSaveAndSync(true);
+      setSaveStatus('saved');
+    }, 3000); // Auto-save 3 seconds after user stops modifying
+
+    return () => clearTimeout(timer);
+  }, [editorHtml, saveStatus]);
+
+  // Track state changes to mark document as dirty
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setSaveStatus('dirty');
+  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3]);
+
+  // Feature 5: Apply base template to editor DOM fields
+  const handleApplyTemplate = (tempId: string) => {
+    const temp = templates.find(t => t.id === tempId);
+    if (!temp) return;
+    
+    setSelectedTemplateId(tempId);
+    setSelectedSystems(temp.systems);
+    
+    if (editorRef.current) {
+      const introEl = editorRef.current.querySelector('.transcription-field');
+      if (introEl) {
+        introEl.textContent = temp.introText;
+      }
+      
+      const footerEl = editorRef.current.querySelector('.detalle-adicional-field');
+      if (footerEl) {
+        footerEl.textContent = temp.footerText;
+      }
+      
+      setEditorHtml(editorRef.current.innerHTML);
+      setSaveStatus('dirty');
+    }
+    showToast(`Plantilla "${temp.name}" aplicada al documento.`);
+  };
 
   const cleanIntroText = (text: string): string => {
     if (!text) return '';
@@ -624,6 +678,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const handleEditorInput = () => {
     if (editorRef.current) {
       setEditorHtml(editorRef.current.innerHTML);
+      setSaveStatus('dirty');
     }
   };
 
@@ -671,7 +726,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   };
 
   // Save current quote details to database
-  const handleSaveAndSync = () => {
+  const handleSaveAndSync = (isAutoSave: boolean = false) => {
     if (!editorRef.current) return;
     
     const htmlContent = editorRef.current.innerHTML;
@@ -695,12 +750,15 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       estimationLineal: meters,
       totalCost: parseFloat(price3) || 0,
       documentHtml: htmlContent,
-      text: cleanText.substring(0, 1000)
+      text: cleanText.substring(0, 1000),
+      templateId: selectedTemplateId
     };
     
     onSaveQuote(updated);
-    showToast('¡Presupuesto y plantilla guardados en el historial!');
-    enviarAlSeguimiento(updated);
+    if (!isAutoSave) {
+      showToast('¡Presupuesto y plantilla guardados en el historial!');
+      enviarAlSeguimiento(updated);
+    }
   };
 
   // Auto-fill from video/audio transcription
@@ -1805,6 +1863,14 @@ ${fullHtml}
                 Plantilla Oficial: Ppo-mail-2022.docx
               </p>
               <span className="text-[10px] text-slate-350 no-print">|</span>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide select-none ${
+                saveStatus === 'saved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                saveStatus === 'saving' ? 'bg-sky-100 text-[#009FE3] animate-pulse border border-sky-200' :
+                'bg-amber-100 text-amber-700 border border-amber-200'
+              }`}>
+                {saveStatus === 'saved' ? '✓ Guardado' : saveStatus === 'saving' ? '⏳ Guardando...' : '● Cambios sin guardar'}
+              </span>
+              <span className="text-[10px] text-slate-350 no-print">|</span>
               <a 
                 href="https://online-audio-converter.com/sp/" 
                 target="_blank" 
@@ -1847,7 +1913,7 @@ ${fullHtml}
             </button>
 
             <button
-              onClick={handleSaveAndSync}
+              onClick={() => handleSaveAndSync(false)}
               className="flex-1 sm:flex-initial bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">save</span>
@@ -2012,6 +2078,21 @@ ${fullHtml}
               Configuración Técnica
             </h3>
             <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">📝 Seleccionar Plantilla Base</label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleApplyTemplate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors cursor-pointer mb-2"
+                >
+                  {templates.map((temp) => (
+                    <option key={temp.id} value={temp.id}>
+                      {temp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">📅 Fecha del Presupuesto</label>
                 <input
