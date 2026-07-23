@@ -363,6 +363,18 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
   // Initialize document content on mount
   useEffect(() => {
+    setClientNameInput(quote.clientName || 'COMUNIDAD DE VECINOS');
+    setClientAddressInput(quote.clientAddress || 'Calle Principal s/n');
+    setClientEmailInput(quote.clientEmail || '');
+    setSelectedBirds(quote.birds && quote.birds.length > 0 ? quote.birds : ['Palomas']);
+    setSelectedSystems(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
+    setMeters(quote.estimationLineal || 15);
+    setPrice1(quote.price1 || '300.00');
+    setPrice2(quote.price2 || '150.00');
+    setPrice3(quote.price3 || '450.00');
+    setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
+    setSelectedTemplateId(quote.templateId || 'temp-red');
+
     if (quote.documentHtml && quote.documentHtml.length > 50) {
       let docHtml = quote.documentHtml;
       
@@ -440,7 +452,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       }, 100);
     } else {
       // Setup the initial HTML using the official Word template and bind placeholders
-      const today = new Date();
+      let today = quote.date ? new Date(quote.date) : new Date();
+      if (isNaN(today.getTime())) today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -462,7 +475,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
       const p1_val = quote.price1 || price1;
       const p2_val = quote.price2 || price2;
@@ -1074,7 +1087,7 @@ Transcripción:
             .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
             .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
 
-          const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
+          const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
           const textForIntro = cleanIntroText((ai && ai.introTecnica) || data.text);
           const textForProblem = cleanProblemText((ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
@@ -1441,8 +1454,9 @@ ${fullHtml}
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
 
       // Replace metadata placeholders in the template (such as Cover Page)
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-' + Math.floor(Math.random() * 90000 + 10000) : quote.id);
-      const today = new Date();
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      let today = quoteDate ? new Date(quoteDate) : new Date();
+      if (isNaN(today.getTime())) today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
