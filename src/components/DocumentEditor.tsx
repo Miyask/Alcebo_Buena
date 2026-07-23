@@ -1328,7 +1328,7 @@ ${fullHtml}
 
     const blob = new Blob([mhtml], { type: 'application/msword' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+const a = document.createElement('a');
     a.href = url;
     a.download = `Presupuesto_${(extractedClient || 'Alcebo').replace(/\s+/g, '_')}.doc`;
     document.body.appendChild(a);
@@ -1363,12 +1363,6 @@ ${fullHtml}
     enviarAlSeguimiento(currentQuote);
     
     try {
-      const docEl = editorRef.current;
-      const getFieldText = (className: string, fallback: string): string => {
-        const el = docEl.querySelector(`.${className}`);
-        return el ? el.textContent || fallback : fallback;
-      };
-
       const cleanBase64 = (str: string): string => {
         if (!str) return '';
         let cleaned = str.replace(/\s/g, '').replace(/ /g, '+');
@@ -1380,117 +1374,28 @@ ${fullHtml}
         return cleaned.replace(/\s/g, '').replace(/ /g, '+');
       };
 
-      const today = new Date();
-      const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-      ];
+      // 1. Clean up temporary UI elements in cloned HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
       
-      const dayStr = today.getDate().toString().padStart(2, '0');
-      const monthStr = monthNames[today.getMonth()];
-      const yearStr = today.getFullYear().toString().substring(2);
-
-      const priSys = selectedSystems[0] || 'Red';
-      const z1 = priSys === 'Red' ? 'Canalones y alféizares principales' : 'Cornisas principales de posado';
-      const z2 = priSys === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
-      const z3 = priSys === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
-
-      const p1_val = quote.price1 || price1;
-      const p2_val = quote.price2 || price2;
-      const p3_val = quote.price3 || price3;
-
-      const finalRefCode = quote.refCode || 'Ref-ALC-[RELLENAR]';
-
-      const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
-      const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
-      const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
-
-      const desPlagaEl = docEl.querySelector('.des-plaga-block');
-      const plagaDescription = desPlagaEl ? desPlagaEl.textContent || '' : '';
-
-      const variables = {
-        refCode: getFieldText('ref-code-field', finalRefCode),
-        clientName: getFieldText('client-name-field', (extractedClient || 'Comunidad').toUpperCase()),
-        clientAddress: getFieldText('client-address-field', clientAddressInput),
-        postalCode: getFieldText('postal-code-field', '28001'),
-        postalCodePrefix: getFieldText('postal-code-prefix-field', '28'),
-        attName: getFieldText('att-name-field', 'Presidente / Administrador de Fincas'),
-        day: getFieldText('day-field', dayStr),
-        month: getFieldText('month-field', monthStr),
-        year: getFieldText('year-field', yearStr),
-        plaga: selectedBird,
-        zonasAfectadas: getFieldText('zonas-afectadas-field', priSys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'),
-        introTecnica: getFieldText('transcription-field', textForIntro),
-        problemaPrincipal: getFieldText('problema-principal-field', textForProblem),
-        detalleAdicional: getFieldText('detalle-adicional-field', textForDetail),
-        zona1: getFieldText('zona-1-field', z1),
-        zona2: getFieldText('zona-2-field', z2),
-        zona3: getFieldText('zona-3-field', z3),
-        price1: getFieldText('price-field-1', p1_val),
-        price2: getFieldText('price-field-2', p2_val),
-        price3: getFieldText('price-field-3', p3_val),
-        tecnico: getFieldText('tecnico-field', 'Técnico Oficial Alcebo'),
-        telefono: getFieldText('telefono-field', '900 123 456'),
-        plagaDescription,
-        activeSystems: selectedSystems
-      };
-
-      // 1. Extract visit images and calculate dimensions directly using DOM API
-      const images: Record<string, string> = {};
-      const imgDimensions: Record<string, { widthPt: number; heightPt: number }> = {};
-      const imgExtensions: Record<string, string> = {};
-      const imgElements = docEl.querySelectorAll('img');
-      let visitPhotoCount = 0;
+      const noPrintElements = tempDiv.querySelectorAll('.no-print, .image-toolbar');
+      noPrintElements.forEach(el => el.remove());
       
-      imgElements.forEach(img => {
-        const src = img.getAttribute('src') || '';
-        const imgId = img.getAttribute('data-img-id') || '';
-        
-        // Skip logo and system diagrams
-        if (!imgId.startsWith('img_') || imgId.startsWith('img_system_')) return;
-        
-        visitPhotoCount++;
-        const base64 = cleanBase64(src.split(',')[1] || src);
-        const key = `img_template_${visitPhotoCount + 1}`; // img_template_2, img_template_3
-        images[key] = base64;
-        imgExtensions[key] = (src.includes('image/png') || src.includes('png;base64') || base64.startsWith('iVBORw')) ? 'png' : 'jpeg';
+      const editableElements = tempDiv.querySelectorAll('[contenteditable]');
+      editableElements.forEach(el => el.removeAttribute('contenteditable'));
 
-        // Extract width and aspect ratio dynamically
-        const container = img.closest('.image-container-block');
-        const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
-        
-        let pxWidth = 280;
-        if (slider && slider.value) {
-          pxWidth = parseInt(slider.value);
-        } else {
-          const styleWidth = img.style.width || img.getAttribute('width');
-          if (styleWidth) {
-            const parsed = parseInt(styleWidth);
-            if (!isNaN(parsed)) pxWidth = parsed;
-          }
-        }
-        if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 280;
+      const containers = tempDiv.querySelectorAll('.image-container-block');
+      containers.forEach(container => {
+        container.removeAttribute('style');
+        container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
+      });
 
-        let aspectRatio = 0.75;
-        const naturalWidth = img.naturalWidth;
-        const naturalHeight = img.naturalHeight;
-        if (naturalWidth && naturalHeight && naturalWidth > 0) {
-          aspectRatio = naturalHeight / naturalWidth;
-        } else {
-          const rect = img.getBoundingClientRect();
-          if (rect.width && rect.height && rect.width > 0) {
-            aspectRatio = rect.height / rect.width;
-          }
-        }
-        if (isNaN(aspectRatio) || aspectRatio <= 0) aspectRatio = 0.75;
-
-        const widthPt = pxWidth * 0.75;
-        const heightPt = widthPt * aspectRatio;
-
-        imgDimensions[key] = {
-          widthPt: parseFloat(widthPt.toFixed(1)),
-          heightPt: parseFloat(heightPt.toFixed(1))
-        };
+      // Replace hr.page-break with styled divs for Word page breaks
+      const pageBreaks = tempDiv.querySelectorAll('hr.page-break');
+      pageBreaks.forEach(pb => {
+        const div = document.createElement('div');
+        div.className = 'page-break';
+        pb.parentNode?.replaceChild(div, pb);
       });
 
       // 2. Load the base64 Word template using PizZip in the browser
@@ -1498,351 +1403,171 @@ ${fullHtml}
       let docXml = zip.file('word/document.xml').asText();
       let relsXml = zip.file('word/_rels/document.xml.rels').asText();
 
-      // Ensure [Content_Types].xml includes all image extensions for Word 2013
+      // Ensure ContentTypes has jpeg, png and html
       let contentTypesXml = zip.file('[Content_Types].xml').asText();
-      if (!contentTypesXml.includes('Extension="jpg"')) {
+      if (!contentTypesXml.includes('PartName="/word/htmlDoc.html"')) {
         contentTypesXml = contentTypesXml.replace(
           '</Types>',
-          '<Default Extension="jpg" ContentType="image/jpeg"/></Types>'
+          '<Override PartName="/word/htmlDoc.html" ContentType="text/html"/></Types>'
         );
-        zip.file('[Content_Types].xml', contentTypesXml);
       }
-
-      // Replace external network-pest.co.uk rId13 link with a 100% local offline image
-      if (IMAGE_RED_BASE64) {
-        const redData = IMAGE_RED_BASE64.split(',')[1];
-        if (redData) {
-          zip.file('word/media/image_red_local.jpeg', atob(redData), { binary: true });
-          relsXml = relsXml.replace(
-            /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
-            '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
-          );
-        }
+      if (!contentTypesXml.includes('Extension="png"')) {
+        contentTypesXml = contentTypesXml.replace(
+          '</Types>',
+          '<Default Extension="png" ContentType="image/png"/></Types>'
+        );
       }
-
-      // Parse existing relationship IDs to guarantee unique rIds for Word 2013
-      const relIds: number[] = [];
-      const idMatchRegex = /Id="rId(\d+)"/g;
-      let rMatch: RegExpExecArray | null;
-      while ((rMatch = idMatchRegex.exec(relsXml)) !== null) {
-        relIds.push(parseInt(rMatch[1], 10));
+      if (!contentTypesXml.includes('Extension="jpeg"')) {
+        contentTypesXml = contentTypesXml.replace(
+          '</Types>',
+          '<Default Extension="jpeg" ContentType="image/jpeg"/></Types>'
+        );
       }
-      let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
+      zip.file('[Content_Types].xml', contentTypesXml);
 
-      // 3. Modify XML placeholders
-      let atIdx = 0;
-      docXml = docXml.replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/gi, (match, content) => {
-        if (content.includes('@@')) {
-          atIdx++;
-          switch (atIdx) {
-            case 1: return `<w:t>${variables.refCode}</w:t>`;
-            case 2: return `<w:t>${variables.clientName}</w:t>`;
-            case 3: return `<w:t>${variables.clientAddress}</w:t>`;
-            case 4: return `<w:t>${variables.postalCode}   Madrid</w:t>`;
-            case 5: return `<w:t>${variables.attName}</w:t>`;
-            case 6: return `<w:t>${variables.day}</w:t>`;
-            case 7: return `<w:t>${variables.month}</w:t>`;
-            case 8: return `<w:t>${variables.year}</w:t>`;
-            case 9: return `<w:t>${variables.clientAddress}</w:t>`;
-            case 10: {
-              const pluralMap: Record<string, string> = {
-                'Palomas': 'palomas',
-                'Gorriones': 'gorriones',
-                'Cigüeñas': 'cigüeñas',
-                'Gaviotas': 'gaviotas',
-                'Cotorras': 'cotorras',
-                'Golondrinas': 'golondrinas',
-                'Urracas': 'urracas'
-              };
-              const pluralBird = pluralMap[variables.plaga] || variables.plaga.toLowerCase();
-              
-              const searchStr = '<w:t xml:space="preserve">palomas en </w:t>';
-              const nextPalomas = docXml.indexOf(searchStr);
-              if (nextPalomas !== -1) {
-                docXml = docXml.substring(0, nextPalomas) + '<w:t xml:space="preserve"> en </w:t>' + docXml.substring(nextPalomas + searchStr.length);
-              }
-              return `<w:t>${pluralBird}</w:t>`;
-            }
-            case 11: return `<w:t>${variables.zonasAfectadas}</w:t>`;
-            case 12: {
-              const lines = variables.introTecnica.split('\n').filter((l: string) => l.trim().length > 0);
-              if (lines.length > 0) {
-                return lines.join('</w:t></w:r></w:p><w:p><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t>');
-              }
-              return `<w:t>se observó presencia activa de aves en la edificación</w:t>`;
-            }
-            case 13: return `<w:t>El problema principal ${variables.problemaPrincipal}</w:t>`;
-            case 14: return `<w:t>${variables.detalleAdicional}</w:t>`;
-            case 15: return `<w:t>${variables.zona1}</w:t>`;
-            case 16: return `<w:t>${variables.zona2}</w:t>`;
-            case 17: return `<w:t>${variables.zona3}</w:t>`;
-            case 18: return `<w:t>${variables.telefono}</w:t>`;
-            case 19: return `<w:t>${variables.postalCodePrefix}</w:t>`;
-            case 20: return `<w:t>${variables.refCode}</w:t>`;
-            case 21: return `<w:t>................ ${variables.price1}</w:t>`;
-            case 22: return `<w:t>${variables.price3}</w:t>`;
-            case 23: return `<w:t>........ ${variables.price2}</w:t>`;
-            case 24: return `<w:t>${variables.tecnico}</w:t>`;
-            case 25: return `<w:t>${variables.clientAddress}</w:t>`;
-          }
-        }
-        return match;
-      });
-
-      // 4. Inject plaga description and bird images using native DrawingML for Word 2013
-      let drawingIdCounter = 1000;
-      const createDrawingMLXml = (rId: string, widthPt: number, heightPt: number, name: string) => {
-        const docPrId = ++drawingIdCounter;
-        const cx = Math.round(widthPt * 12700);
-        const cy = Math.round(heightPt * 12700);
-        return `
-          <w:p>
-            <w:pPr><w:jc w:val="center"/></w:pPr>
-            <w:r>
-              <w:drawing>
-                <wp:inline distT="0" distB="0" distL="0" distR="0">
-                  <wp:extent cx="${cx}" cy="${cy}"/>
-                  <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                  <wp:docPr id="${docPrId}" name="${name}"/>
-                  <wp:cNvGraphicFramePr>
-                    <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
-                  </wp:cNvGraphicFramePr>
-                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                      <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                        <pic:nvPicPr>
-                          <pic:cNvPr id="${docPrId}" name="${name}"/>
-                          <pic:cNvPicPr/>
-                        </pic:nvPicPr>
-                        <pic:blipFill>
-                          <a:blip r:embed="${rId}"/>
-                          <a:stretch>
-                            <a:fillRect/>
-                          </a:stretch>
-                        </pic:blipFill>
-                        <pic:spPr>
-                          <a:xfrm>
-                            <a:off x="0" y="0"/>
-                            <a:ext cx="${cx}" cy="${cy}"/>
-                          </a:xfrm>
-                          <a:prstGeom prst="rect">
-                            <a:avLst/>
-                          </a:prstGeom>
-                        </pic:spPr>
-                      </pic:pic>
-                    </a:graphicData>
-                  </a:graphic>
-                </wp:inline>
-              </w:drawing>
-            </w:r>
-          </w:p>
-        `;
-      };
-
-      // 4. Inject plaga descriptions and bird images using native DrawingML for Word 2013
-      let fullBirdsXml = '';
-      selectedBirds.forEach(birdKey => {
-        const bird = BIRDS_DATA.find(b => b.key.toLowerCase() === birdKey.toLowerCase() || b.name.toLowerCase() === birdKey.toLowerCase());
-        if (bird) {
-          // Bird Sub-heading Title
-          fullBirdsXml += `
-            <w:p>
-              <w:pPr>
-                <w:jc w:val="both"/>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
-                  <w:b/>
-                  <w:color w:val="009FE3"/>
-                  <w:sz w:val="24"/>
-                </w:rPr>
-              </w:pPr>
-              <w:r>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
-                  <w:b/>
-                  <w:color w:val="009FE3"/>
-                  <w:sz w:val="24"/>
-                </w:rPr>
-                <w:t>${bird.title}</w:t>
-              </w:r>
-            </w:p>
-          `;
-
-          // Bird Text Paragraphs
-          const textParas = bird.text.split('\n\n');
-          textParas.forEach(pText => {
-            if (pText.trim()) {
-              fullBirdsXml += `
-                <w:p>
-                  <w:pPr>
-                    <w:jc w:val="both"/>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
-                  </w:pPr>
-                  <w:r>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr>
-                    <w:t>${pText.trim()}</w:t>
-                  </w:r>
-                </w:p>
-              `;
-            }
-          });
-
-          // Bird Images directly under its text!
-          if (bird.images && bird.images.length > 0) {
-            bird.images.forEach((bImg, idx) => {
-              const bRelId = `rId${nextRelIdNum++}`;
-              const ext = bImg.mime.includes('png') ? 'png' : 'jpeg';
-              const bTargetPath = `media/bird_${birdKey.replace(/\s+/g, '_')}_${idx}.${ext}`;
-              
-              relsXml = relsXml.replace(
-                '</Relationships>',
-                `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
-              );
-              zip.file(`word/${bTargetPath}`, atob(bImg.base64), { binary: true });
-
-              fullBirdsXml += createDrawingMLXml(bRelId, 240, 160, bird.name);
-            });
-          }
+      // 3. Extract and write images as separate files in zip
+      const imagesInDoc = tempDiv.querySelectorAll('img');
+      let chunkImageCount = 0;
+      imagesInDoc.forEach(img => {
+        const src = img.getAttribute('src') || '';
+        if (src.startsWith('data:')) {
+          chunkImageCount++;
+          const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
+          const ext = mime.includes('png') ? 'png' : 'jpeg';
+          const base64Part = src.split(',')[1] || src;
+          const cleaned = cleanBase64(base64Part);
+          
+          const filename = `media/image_chunk_${chunkImageCount}.${ext}`;
+          zip.file(`word/${filename}`, atob(cleaned), { binary: true });
+          img.setAttribute('src', filename);
         }
       });
 
-      if (fullBirdsXml) {
-        const birdAnchorRegex = /<w:p[^>]*>[\s\S]*?aprovechar los desechos animales[\s\S]*?<\/w:p>/i;
-        docXml = docXml.replace(birdAnchorRegex, (match) => match + fullBirdsXml);
-      }
+      // 4. Build final HTML Doc
+      const htmlBody = tempDiv.innerHTML;
+      const htmlDoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #333333;
+  }
+  p {
+    margin-top: 0 !important;
+    margin-bottom: 12pt !important;
+    text-align: justify !important;
+    line-height: 1.6 !important;
+    font-size: 11pt !important;
+    color: #333333 !important;
+  }
+  h1, h2, h3, h4 {
+    color: #009FE3 !important;
+    font-weight: bold !important;
+    margin-top: 18pt !important;
+    margin-bottom: 8pt !important;
+  }
+  h1 { font-size: 16pt !important; }
+  h2 { font-size: 14pt !important; }
+  h3 { font-size: 12.5pt !important; }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 14pt !important;
+    margin-bottom: 14pt !important;
+  }
+  th, td {
+    border: 1px solid #bec8d2 !important;
+    padding: 8px !important;
+    font-size: 10.5pt !important;
+  }
+  th {
+    background-color: #009FE3 !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+  }
+  ul {
+    list-style-type: disc !important;
+    margin-left: 24px !important;
+    margin-bottom: 12px !important;
+  }
+  ol {
+    list-style-type: decimal !important;
+    margin-left: 24px !important;
+    margin-bottom: 12px !important;
+  }
+  .page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    clear: both !important;
+  }
+  .image-container-block {
+    text-align: center !important;
+    margin: 20px auto !important;
+    display: block !important;
+    max-width: 580px !important;
+  }
+  .document-image {
+    max-width: 100% !important;
+    height: auto !important;
+    border: 1px solid #bec8d2 !important;
+    border-radius: 8px !important;
+  }
+  .client-name-field, .client-address-field, .postal-code-field, .postal-code-prefix-field,
+  .att-name-field, .ref-code-field, .plaga-field, .zonas-afectadas-field,
+  .tecnico-field, .telefono-field, .price-field-1, .price-field-2, .price-field-3,
+  .day-field, .month-field, .year-field, .transcription-field,
+  .problema-principal-field, .detalle-adicional-field {
+    background-color: transparent !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+  }
+  .cover-page-wrapper p {
+    text-align: center !important;
+  }
+</style>
+</head>
+<body>
+  ${htmlBody}
+</body>
+</html>`;
 
-      // 5. Remove unproposed systems
-      if (!variables.activeSystems.includes('Red')) {
-        const pRedTitle = /<w:p[^>]*>[\s\S]*?r:id="rId11"[\s\S]*?<\/w:p>/g;
-        docXml = docXml.replace(pRedTitle, '');
-        const pRedBullets = [
-          /<w:p[^>]*>[\s\S]*?Base de polietileno trenzado[\s\S]*?<\/w:p>/gi,
-          /<w:p[^>]*>[\s\S]*?Fijación de la red sobre cable[\s\S]*?<\/w:p>/gi,
-          /<w:p[^>]*>[\s\S]*?Cada hebra se forma por 3 filamentos[\s\S]*?<\/w:p>/gi,
-          /<w:p[^>]*>[\s\S]*?El diámetro del rombo[\s\S]*?<\/w:p>/gi,
-        ];
-        pRedBullets.forEach(re => { docXml = docXml.replace(re, ''); });
-      }
+      // 5. Replace document.xml body with altChunk reference and keep template's sectPr
+      const sectPrMatch = docXml.match(/<w:sectPr[^>]*>[\s\S]*?<\/w:sectPr>/i);
+      const sectPrXml = sectPrMatch ? sectPrMatch[0] : '';
+      
+      docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" 
+            xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+            xmlns:o="urn:schemas-microsoft-com:office:office" 
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" 
+            xmlns:m="http://schemas.openxmlformats.org/officeDrawing/2006/math" 
+            xmlns:v="urn:schemas-microsoft-com:vml" 
+            xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" 
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" 
+            xmlns:w10="urn:schemas-microsoft-com:office:word" 
+            xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
+            xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" 
+            xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordprocessingDoubleByte" 
+            xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" 
+            mc:Ignorable="w14 w15 wp14">
+  <w:body>
+    <w:altChunk r:id="rIdAltChunk1" />
+    ${sectPrXml}
+  </w:body>
+</w:document>`;
 
-      if (!variables.activeSystems.includes('Varillas')) {
-        const pVarillasTitle = /<w:p[^>]*>[\s\S]*?r:id="rId12"[\s\S]*?<\/w:p>/g;
-        docXml = docXml.replace(pVarillasTitle, '');
-        const pVarillasBullets = [
-          /<w:p[^>]*>[\s\S]*?Alambre de acero inoxidable[\s\S]*?<\/w:p>/gi,
-          /<w:p[^>]*>[\s\S]*?Punta roma de baja[\s\S]*?<\/w:p>/gi,
-          /<w:p[^>]*>[\s\S]*?Fijación con adhesivo sellador[\s\S]*?<\/w:p>/gi,
-        ];
-        pVarillasBullets.forEach(re => { docXml = docXml.replace(re, ''); });
-      }
+      // 6. Update document.xml.rels with altChunk relationship
+      relsXml = relsXml.replace('</Relationships>', `<Relationship Id="rIdAltChunk1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="htmlDoc.html"/></Relationships>`);
 
-      // Add electric/capturas XML if proposed
-      const electricoXml = `
-        <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr>
-            <w:t>SISTEMA ELECTROESTÁTICO DISUASORIO (ELÉCTRICO): </w:t>
-          </w:r>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>sus características son las siguientes:</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Solución de alta discreción visual, ideal para edificios catalogados o zonas de alto valor estético.</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Emisión de impulsos electroestáticos de baja frecuencia y baja intensidad, completamente inocuos para las aves pero altamente disuasorios.</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Línea perimetral de conductores de acero inoxidable fijados sobre aisladores de policarbonato estabilizado.</w:t>
-          </w:r>
-        </w:p>
-      `;
-
-      const capturasXml = `
-        <w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr>
-            <w:t>PLAN DE CAPTURAS SELECTIVAS: </w:t>
-          </w:r>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>sus características son las siguientes:</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Instalación de jaulas trampa homologadas dotadas de comederos, bebederos y sombreado para garantizar el bienestar animal.</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Revisiones y mantenimiento periódico por técnicos autorizados para control de capturas, retirada selectiva y cebado.</w:t>
-          </w:r>
-        </w:p>
-        <w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>
-          <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
-            <w:t>Retirada y traslado humanitario de los ejemplares de acuerdo con la legislación autonómica de protección y sanidad animal.</w:t>
-          </w:r>
-        </w:p>
-      `;
-
-      if (variables.activeSystems.includes('Eléctrico') || variables.activeSystems.includes('Capturas')) {
-        const anchorRegex = /<w:p[^>]*>[\s\S]*?A continuación detallamos las características de los sistemas elegidos[\s\S]*?<\/w:p>/i;
-        docXml = docXml.replace(anchorRegex, (match) => {
-          let extraXml = '';
-          if (variables.activeSystems.includes('Eléctrico')) {
-            extraXml += electricoXml;
-          }
-          if (variables.activeSystems.includes('Capturas')) {
-            extraXml += capturasXml;
-          }
-          return match + extraXml;
-        });
-      }
-
-      // 6. Inject custom visit photos dynamically inside XML by appending unique relationships using DrawingML
-      const visitRelIds: string[] = [];
-      if (images['img_template_2']) { // Visit photo 1
-        const rId1 = `rId${nextRelIdNum++}`;
-        const ext1 = imgExtensions['img_template_2'] || 'jpeg';
-        visitRelIds.push(rId1);
-        relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_1.${ext1}"/></Relationships>`);
-        zip.file(`word/media/visit_photo_1.${ext1}`, atob(cleanBase64(images['img_template_2'])), { binary: true });
-      }
-      if (images['img_template_3']) { // Visit photo 2
-        const rId2 = `rId${nextRelIdNum++}`;
-        const ext2 = imgExtensions['img_template_3'] || 'jpeg';
-        visitRelIds.push(rId2);
-        relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/visit_photo_2.${ext2}"/></Relationships>`);
-        zip.file(`word/media/visit_photo_2.${ext2}`, atob(cleanBase64(images['img_template_3'])), { binary: true });
-      }
-      zip.file('word/_rels/document.xml.rels', relsXml);
-
-      let photoIdx = 0;
-      docXml = docXml.replace(/<w:p[^>]*>([\s\S]*?<w:t>Foto Muestra<\/w:t>[\s\S]*?)<\/w:p>/gi, (match) => {
-        photoIdx++;
-        const key = `img_template_${photoIdx + 1}`;
-        const rId = visitRelIds[photoIdx - 1];
-        
-        if (images[key] && imgDimensions[key] && rId) {
-          const { widthPt, heightPt } = imgDimensions[key];
-          return createDrawingMLXml(rId, widthPt, heightPt, `Foto Inspección ${photoIdx}`);
-        }
-        return ''; // Delete the "Foto Muestra" placeholder text if no photo uploaded
-      });
-
-      // 7. Clean up empty paragraphs and force clean native page break before Section 6 (PRESUPUESTO Y GARANTÍAS)
-      docXml = docXml.replace(/(?:<w:p[^>]*>\s*(?:<w:pPr>[\s\S]*?<\/w:pPr>)?\s*<\/w:p>\s*)+(?=<w:p[^>]*>[\s\S]*?6\.- PRESUPUESTO Y GARANTÍAS)/gi, '');
-
-      const sec6ParagraphRegex = /(<w:p[^>]*>[\s\S]*?<w:t[^>]*>6\.- PRESUPUESTO Y GARANTÍAS[\s\S]*?<\/w:p>)/gi;
-      docXml = docXml.replace(sec6ParagraphRegex, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1');
-
-      // 8. Write modified XML back into zip
       zip.file('word/document.xml', docXml);
+      zip.file('word/_rels/document.xml.rels', relsXml);
+      zip.file('word/htmlDoc.html', htmlDoc);
 
-      // 8. Generate DOCX file blob and download it
+      // 7. Generate DOCX file blob and download it
       const outBase64 = zip.generate({ type: 'base64' });
       const binaryString = atob(outBase64);
       const len = binaryString.length;
@@ -1860,11 +1585,10 @@ ${fullHtml}
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
-      showToast('¡Documento Word oficial (.docx) compilado y descargado!');
-    } catch (err: any) {
-      console.error(err);
-      alert(`Error al descargar el Word:\n${err.message}`);
+      showToast('¡Documento Word (.docx) descargado con éxito!');
+    } catch (error: any) {
+      console.error('Error al exportar DOCX:', error);
+      showToast('Error al exportar a Word');
     }
   };
 
