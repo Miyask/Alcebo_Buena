@@ -884,7 +884,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
 
 JSON keys:
-- "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Urracas".
+- "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Avión Común".
 - "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
@@ -954,7 +954,7 @@ Transcripción:
           } else {
             if (textLower.includes('paloma')) detectedBird = 'Palomas';
             else if (textLower.includes('golondrina')) detectedBird = 'Golondrinas';
-            else if (textLower.includes('urraca')) detectedBird = 'Urracas';
+            else if (textLower.includes('avión') || textLower.includes('avion')) detectedBird = 'Avión Común';
             else if (textLower.includes('gaviota')) detectedBird = 'Gaviotas';
             else if (textLower.includes('gorrion') || textLower.includes('gorrión')) detectedBird = 'Gorriones';
           }

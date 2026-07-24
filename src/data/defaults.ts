@@ -63,14 +63,7 @@ export const DEFAULT_CONDITIONAL_TEXTS: ConditionalText[] = [
     textToInclude: 'Las gaviotas (Laridae) son en general pájaros grandes, en su mayoría de plumaje gris o blanco, a menudo con señales negras en la cabeza o las alas. Las gaviotas adultas tienen la cabeza, el cuello, la cola y la parte inferior del cuerpo de un color blanco puro, mientras que la espalda y el dorso de las alas son de color gris pálido. Son típicamente costeras pero han colonizado poblaciones del interior siguiendo los ríos y atraídas por los vertederos. Su variada alimentación incluye todo tipo de animales marinos, pequeños pájaros, ratas, huevos y desperdicios del hombre. Se emparejan para toda la vida y suelen anidar cada año en el mismo lugar de forma muy gregaria, mostrando gran agresividad protectora.',
     isActive: true
   },
-  {
-    id: 'rule-urracas',
-    title: 'Exclusión de Urracas (Pica pica)',
-    birdType: 'Urracas',
-    condition: 'Ave = Urracas',
-    textToInclude: 'La Urraca (Pica pica) destaca por su comportamiento oportunista y gregarismo en jardines o fachadas. Su gran tamaño e inteligencia les permite evadir sistemas de disuasión simples. Producen ruidos molestos a primeras horas. Se propone el uso de redes de malla estrecha o varillas Avipoint en molduras de descanso.',
-    isActive: true
-  },
+
   {
     id: 'rule-golondrinas',
     title: 'Protección de Golondrinas (Hirundo rustica)',

@@ -282,9 +282,12 @@ export default function TextosCondicionalesView({
                       >
                         <option value="">Todas las aves</option>
                         <option value="Palomas">Palomas</option>
-                        <option value="Golondrinas">Golondrinas</option>
-                        <option value="Urracas">Urracas</option>
+                        <option value="Gorriones">Gorriones</option>
+                        <option value="Cigüeñas">Cigüeñas</option>
                         <option value="Gaviotas">Gaviotas</option>
+                        <option value="Cotorras">Cotorras</option>
+                        <option value="Golondrinas">Golondrinas</option>
+                        <option value="Avión Común">Avión Común</option>
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
