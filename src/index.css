@@ -155,14 +155,17 @@
   }
 
   /* Hide all app navigation, buttons, sidebars and headers */
-  header, footer, nav, aside, button, .no-print, [role="toolbar"], .print-hidden,
-  .lg\:w-\[320px\],
-  input, select, textarea,
-  .image-toolbar,
-  .editor-formatting-toolbar,
-  .toast-alert {
-    display: none !important;
-  }
+  .no-print { display: none !important; }
+  .print-hidden { display: none !important; }
+  .print\:hidden { display: none !important; }
+  [class*="print:hidden"] { display: none !important; }
+  header, footer, nav, aside { display: none !important; }
+  button { display: none !important; }
+  input, select, textarea { display: none !important; }
+  [role="toolbar"] { display: none !important; }
+  .image-toolbar { display: none !important; }
+  .editor-formatting-toolbar { display: none !important; }
+  .toast-alert { display: none !important; }
 
   body, html {
     background: white !important;

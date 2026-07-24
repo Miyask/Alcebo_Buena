@@ -289,7 +289,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       return;
     }
     setSaveStatus('dirty');
-  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3]);
+  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3, customText, selectedTemplateId]);
 
   // Feature 5: Apply base template to editor DOM fields
   const handleApplyTemplate = (tempId: string) => {
@@ -787,7 +787,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       estimationLineal: meters,
       totalCost: parseFloat(price3) || 0,
       documentHtml: htmlContent,
-      text: cleanText.substring(0, 1000),
+      text: customText,
       templateId: selectedTemplateId
     };
     
