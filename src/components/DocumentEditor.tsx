@@ -1314,7 +1314,7 @@ Transcripción:
       const imgId = img.getAttribute('data-img-id') || '';
       const isLogo = src.includes('logo') || alt.toLowerCase().includes('logo') || imgId.includes('logo') || !!img.closest('.cover-page-wrapper');
 
-      let pxWidth = isLogo ? 480 : 280;
+      let pxWidth = isLogo ? 320 : 280;
       let aspectRatio = 0.75;
 
       const imgEl = img as HTMLImageElement;
@@ -1375,7 +1375,7 @@ Transcripción:
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<div[^>]*>\s*Fig:[^<]*<\/div>/gi, '')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
-      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 20px; margin-bottom: 20px; page-break-after: always; mso-break-type:section-break">');
+      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px;">');
 
     // Replace all inline data URIs with MHTML Content-Location references and build MIME parts
     processedHtmlContent = processedHtmlContent.replace(/<img([^>]+)src="(data:image\/([^;]+);base64,([^"]+))"([^>]*)>/gi, (match, beforeSrc, dataUri, mimeType, base64Data, afterSrc) => {
@@ -1466,9 +1466,8 @@ ${cleanedBase64}`);
           .cover-page-wrapper {
             text-align: center;
             display: block;
-            margin-top: 20px;
+            margin-top: 10px;
             margin-bottom: 20px;
-            page-break-after: always;
           }
           .image-wrapper, .image-container-block {
             text-align: center;
@@ -1486,7 +1485,7 @@ ${cleanedBase64}`);
             margin: 10px auto;
           }
           .cover-page-wrapper img, img.logo, img[alt*="logo" i], img[alt*="Logo"] {
-            max-width: 480px !important;
+            max-width: 320px !important;
             height: auto !important;
             border: none !important;
             margin: 15px auto;
