@@ -1259,6 +1259,17 @@ Transcripción:
     }
   };
 
+  const cleanBase64 = (str: string): string => {
+    if (!str) return '';
+    let cleaned = str.replace(/\s/g, '').replace(/ /g, '+');
+    if (cleaned.includes('%')) {
+      try {
+        cleaned = decodeURIComponent(cleaned);
+      } catch (e) {}
+    }
+    return cleaned.replace(/\s/g, '').replace(/ /g, '+');
+  };
+
   // Export high-fidelity MHTML Word document (.doc) directly on the client-side
   const handleExportMhtml = () => {
     if (!editorRef.current) return;
