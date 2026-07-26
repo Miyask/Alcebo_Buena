@@ -1334,8 +1334,36 @@ Transcripción:
       img.style.height = pxHeight + 'px';
     });
 
-    const cleanHtmlContent = tempDiv.innerHTML;
-    
+    // Process images and page breaks for high-fidelity MHTML Word document
+    const boundary = '----=_NextPart_000_0000_01D1';
+    const mimeParts: string[] = [];
+    let imageCounter = 0;
+
+    let processedHtmlContent = tempDiv.innerHTML;
+
+    // Convert page breaks to Word MSO break syntax
+    processedHtmlContent = processedHtmlContent
+      .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
+      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 100px; margin-bottom: 100px; page-break-after: always; mso-break-type:section-break">');
+
+    // Replace all inline data URIs with MHTML Content-Location references and build MIME parts
+    processedHtmlContent = processedHtmlContent.replace(/<img([^>]+)src="(data:image\/([^;]+);base64,([^"]+))"([^>]*)>/gi, (match, beforeSrc, dataUri, mimeType, base64Data, afterSrc) => {
+      imageCounter++;
+      const ext = mimeType.includes('png') ? 'png' : 'jpeg';
+      const location = `word_img_${imageCounter}.${ext}`;
+      const contentType = `image/${ext}`;
+      const cleanedBase64 = cleanBase64(base64Data);
+
+      mimeParts.push(`--${boundary}
+Content-Type: ${contentType}
+Content-Transfer-Encoding: base64
+Content-Location: ${location}
+
+${cleanedBase64}`);
+
+      return `<img${beforeSrc}src="${location}"${afterSrc}>`;
+    });
+
     // Build full high-fidelity styled HTML document
     const fullHtml = `
       <!DOCTYPE html>
@@ -1402,7 +1430,7 @@ Transcripción:
           }
           .page-break {
             page-break-before: always;
-            break-before: page;
+            mso-break-type: section-break;
           }
           .cover-page-wrapper {
             text-align: center;
@@ -1427,21 +1455,28 @@ Transcripción:
         </style>
       </head>
       <body>
-        ${cleanHtmlContent}
-             </body>
+        ${processedHtmlContent}
+      </body>
       </html>
     `;
 
-    // Package as MHTML Web Archive format for maximum MS Word styling compatibility
-    const mhtml = `MIME-Version: 1.0
-Content-Type: multipart/related; boundary="----boundary"
+    // Package as MHTML Web Archive format for 100% MS Word compatibility with embedded images
+    const mhtmlParts = [
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/related; type="text/html"; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset="utf-8"`,
+      `Content-Transfer-Encoding: 7bit`,
+      ``,
+      fullHtml,
+      ``,
+      ...mimeParts,
+      ``,
+      `--${boundary}--`
+    ];
 
-------boundary
-Content-Type: text/html; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-
-${fullHtml}
-------boundary--`;
+    const mhtml = mhtmlParts.join('\r\n');
 
     const blob = new Blob([mhtml], { type: 'application/msword' });
     const url = window.URL.createObjectURL(blob);
