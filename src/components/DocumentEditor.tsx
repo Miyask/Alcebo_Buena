@@ -1603,48 +1603,8 @@ ${fullHtml}
         const docPrId = ++drawingIdCounter;
         const cx = Math.round(widthPt * 12700);
         const cy = Math.round(heightPt * 12700);
-        return `
-          <w:p>
-            <w:pPr><w:jc w:val="center"/></w:pPr>
-            <w:r>
-              <w:drawing>
-                <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-                  <wp:extent cx="${cx}" cy="${cy}"/>
-                  <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                  <wp:docPr id="${docPrId}" name="${name}"/>
-                  <wp:cNvGraphicFramePr>
-                    <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
-                  </wp:cNvGraphicFramePr>
-                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                      <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                        <pic:nvPicPr>
-                          <pic:cNvPr id="${docPrId}" name="${name}"/>
-                          <pic:cNvPicPr/>
-                        </pic:nvPicPr>
-                        <pic:blipFill>
-                          <a:blip r:embed="${rId}"/>
-                          <a:stretch>
-                            <a:fillRect/>
-                          </a:stretch>
-                        </pic:blipFill>
-                        <pic:spPr>
-                          <a:xfrm>
-                            <a:off x="0" y="0"/>
-                            <a:ext cx="${cx}" cy="${cy}"/>
-                          </a:xfrm>
-                          <a:prstGeom prst="rect">
-                            <a:avLst/>
-                          </a:prstGeom>
-                        </pic:spPr>
-                      </pic:pic>
-                    </a:graphicData>
-                  </a:graphic>
-                </wp:inline>
-              </w:drawing>
-            </w:r>
-          </w:p>
-        `;
+        // Use namespaces declared in root w:document tag (no duplicate xmlns on child elements)
+        return `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
       };
 
       // Recursive DOM node to Word XML translator
@@ -1894,10 +1854,26 @@ ${fullHtml}
       }
 
       // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
-      docXml = docXml.replace(
-        '<w:document ',
-        '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
-      );
+      // We add xmlns:wp (wordprocessingDrawing), xmlns:a (drawingml/main), xmlns:pic (drawingml/picture)
+      // only if they are not already present in the template root tag
+      if (!docXml.includes('xmlns:wp=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+        );
+      }
+      if (!docXml.includes('xmlns:a=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        );
+      }
+      if (!docXml.includes('xmlns:pic=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
+        );
+      }
 
       // Extract the correct last section properties (Section Break #1) from the end of the body
       const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
