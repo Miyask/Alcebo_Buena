@@ -1315,37 +1315,53 @@ Transcripción:
       const imgId = img.getAttribute('data-img-id') || '';
       const isLogo = src.includes('logo') || alt.toLowerCase().includes('logo') || imgId.includes('logo') || !!img.closest('.cover-page-wrapper');
 
-      if (isLogo) {
-        img.setAttribute('width', '200');
-        img.style.width = '200px';
-        img.style.maxWidth = '200px';
-        img.style.height = 'auto';
-        img.style.border = 'none';
-        return;
-      }
+      let pxWidth = isLogo ? 220 : 280;
+      let aspectRatio = 0.75;
 
-      let pxWidth = 280;
-      const originalImg = editorRef.current?.querySelector(`img[data-img-id="${imgId}"]`);
-      const container = originalImg?.closest('.image-container-block');
-      const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
+      const imgEl = img as HTMLImageElement;
+      let naturalWidth = imgEl.naturalWidth;
+      let naturalHeight = imgEl.naturalHeight;
 
-      if (slider && slider.value) {
-        const parsed = parseInt(slider.value);
-        if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
-      } else {
-        const styleWidth = img.style.width || img.getAttribute('width');
-        if (styleWidth) {
-          const parsed = parseInt(styleWidth);
-          if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
+      if (!naturalWidth || !naturalHeight) {
+        const originalImg = editorRef.current?.querySelector(`img[src="${src}"], img[alt="${alt}"], img[data-img-id="${imgId}"]`) as HTMLImageElement;
+        if (originalImg) {
+          naturalWidth = originalImg.naturalWidth;
+          naturalHeight = originalImg.naturalHeight;
         }
       }
 
-      if (isNaN(pxWidth) || pxWidth <= 0 || pxWidth > 350) pxWidth = 280;
+      if (naturalWidth && naturalHeight && naturalWidth > 0) {
+        aspectRatio = naturalHeight / naturalWidth;
+      }
+
+      if (!isLogo) {
+        const originalImg = editorRef.current?.querySelector(`img[data-img-id="${imgId}"]`);
+        const container = originalImg?.closest('.image-container-block');
+        const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
+
+        if (slider && slider.value) {
+          const parsed = parseInt(slider.value);
+          if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
+        } else {
+          const styleWidth = img.style.width || img.getAttribute('width');
+          if (styleWidth) {
+            const parsed = parseInt(styleWidth);
+            if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
+          }
+        }
+
+        if (isNaN(pxWidth) || pxWidth <= 0 || pxWidth > 350) pxWidth = 280;
+      }
+
+      const pxHeight = Math.round(pxWidth * aspectRatio);
 
       img.setAttribute('width', pxWidth.toString());
+      img.setAttribute('height', pxHeight.toString());
       img.style.width = pxWidth + 'px';
-      img.style.maxWidth = pxWidth + 'px';
-      img.style.height = 'auto';
+      img.style.height = pxHeight + 'px';
+      if (isLogo) {
+        img.style.border = 'none';
+      }
     });
 
     // Process images and page breaks for high-fidelity MHTML Word document
