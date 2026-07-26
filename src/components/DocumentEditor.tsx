@@ -1524,6 +1524,28 @@ ${fullHtml}
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
+      
+      // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
+      // We do this first so character indices computed later are correct.
+      if (!docXml.includes('xmlns:wp=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+        );
+      }
+      if (!docXml.includes('xmlns:a=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        );
+      }
+      if (!docXml.includes('xmlns:pic=')) {
+        docXml = docXml.replace(
+          '<w:document ',
+          '<w:document xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
+        );
+      }
+
       let relsXml = zip.file('word/_rels/document.xml.rels').asText();
 
       const base64ToUint8Array = (base64: string): Uint8Array => {
@@ -1854,27 +1876,7 @@ ${fullHtml}
         throw new Error('No se encontró el inicio de párrafo de la Sección 1.');
       }
 
-      // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
-      // We add xmlns:wp (wordprocessingDrawing), xmlns:a (drawingml/main), xmlns:pic (drawingml/picture)
-      // only if they are not already present in the template root tag
-      if (!docXml.includes('xmlns:wp=')) {
-        docXml = docXml.replace(
-          '<w:document ',
-          '<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
-        );
-      }
-      if (!docXml.includes('xmlns:a=')) {
-        docXml = docXml.replace(
-          '<w:document ',
-          '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-        );
-      }
-      if (!docXml.includes('xmlns:pic=')) {
-        docXml = docXml.replace(
-          '<w:document ',
-          '<w:document xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
-        );
-      }
+
 
       // Extract the correct last section properties (Section Break #1) from the end of the body
       const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
