@@ -16,7 +16,73 @@ import PlantillasView from './components/PlantillasView';
 import TextosCondicionalesView from './components/TextosCondicionalesView';
 import SettingsView from './components/SettingsView';
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<any, any> {
+  state: any;
+  props: any;
+
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '30px', background: '#fef2f2', border: '2px solid #fee2e2', borderRadius: '16px', margin: '40px auto', maxWidth: '600px', fontFamily: 'sans-serif', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ color: '#991b1b', marginTop: 0, fontSize: '20px', fontWeight: 'bold' }}>⚠️ Ha ocurrido un error en la aplicación</h2>
+          <p style={{ color: '#7f1d1d', fontSize: '13px', lineHeight: '1.5' }}>
+            La base de datos local del navegador contiene algún presupuesto dañado debido a los cuelgues anteriores. Para solucionar esto y volver a entrar a la aplicación de inmediato, haz clic en el botón de abajo para reiniciar tu base de datos local:
+          </p>
+          <button 
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            style={{ background: '#dc2626', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', marginTop: '10px', boxShadow: '0 4px 6px -1px rgba(220,38,38,0.2)', transition: 'all 0.2s' }}
+          >
+            Limpiar Datos y Reiniciar
+          </button>
+          <div style={{ marginTop: '25px' }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase' }}>Detalles técnicos del error:</span>
+            <pre style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', overflowX: 'auto', border: '1px solid #e2e8f0', fontSize: '11px', color: '#334155', marginTop: '5px', maxHeight: '200px' }}>
+              {this.state.error?.toString()}<br/>
+              {this.state.error?.stack}
+            </pre>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   // Navigation State
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -28,7 +94,7 @@ export default function App() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          return parsed.filter((q: Quote) => q && typeof q === 'object' && q.id !== 'q-example-1');
+          return parsed.filter((q: Quote) => q && q.id && q.id !== 'q-example-1');
         }
       }
     } catch (e) {
