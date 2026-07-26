@@ -1310,39 +1310,42 @@ Transcripción:
 
     const imagesInDoc = tempDiv.querySelectorAll('img');
     imagesInDoc.forEach(img => {
+      const src = img.getAttribute('src') || '';
+      const alt = img.getAttribute('alt') || '';
       const imgId = img.getAttribute('data-img-id') || '';
-      
-      if (!imgId.startsWith('img_') || imgId.startsWith('img_system_')) return;
-      
+      const isLogo = src.includes('logo') || alt.toLowerCase().includes('logo') || imgId.includes('logo') || !!img.closest('.cover-page-wrapper');
+
+      if (isLogo) {
+        img.setAttribute('width', '200');
+        img.style.width = '200px';
+        img.style.maxWidth = '200px';
+        img.style.height = 'auto';
+        img.style.border = 'none';
+        return;
+      }
+
+      let pxWidth = 280;
       const originalImg = editorRef.current?.querySelector(`img[data-img-id="${imgId}"]`);
       const container = originalImg?.closest('.image-container-block');
       const slider = container?.querySelector('input[type="range"]') as HTMLInputElement;
-      
-      let pxWidth = 280;
+
       if (slider && slider.value) {
-        pxWidth = parseInt(slider.value);
+        const parsed = parseInt(slider.value);
+        if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
       } else {
         const styleWidth = img.style.width || img.getAttribute('width');
         if (styleWidth) {
           const parsed = parseInt(styleWidth);
-          if (!isNaN(parsed)) pxWidth = parsed;
+          if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
         }
       }
-      if (isNaN(pxWidth) || pxWidth <= 0) pxWidth = 280;
 
-      let aspectRatio = 0.75;
-      const naturalWidth = img.naturalWidth;
-      const naturalHeight = img.naturalHeight;
-      if (naturalWidth && naturalHeight && naturalWidth > 0) {
-        aspectRatio = naturalHeight / naturalWidth;
-      }
-      
-      const pxHeight = Math.round(pxWidth * aspectRatio);
+      if (isNaN(pxWidth) || pxWidth <= 0 || pxWidth > 350) pxWidth = 280;
 
       img.setAttribute('width', pxWidth.toString());
-      img.setAttribute('height', pxHeight.toString());
       img.style.width = pxWidth + 'px';
-      img.style.height = pxHeight + 'px';
+      img.style.maxWidth = pxWidth + 'px';
+      img.style.height = 'auto';
     });
 
     // Process images and page breaks for high-fidelity MHTML Word document
@@ -1458,10 +1461,17 @@ ${cleanedBase64}`);
             page-break-inside: avoid;
           }
           img {
+            max-width: 280px !important;
+            height: auto !important;
             border: 1px solid #bec8d2;
             border-radius: 8px;
             display: block;
-            margin: 0 auto;
+            margin: 10px auto;
+          }
+          .cover-page-wrapper img, img.logo, img[alt*="logo" i], img[alt*="Logo"] {
+            max-width: 200px !important;
+            height: auto !important;
+            border: none !important;
           }
         </style>
       </head>
