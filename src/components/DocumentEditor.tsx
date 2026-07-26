@@ -686,53 +686,76 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   };
 
   // Insert image at current cursor selection or append as block
+  // Insert image at current cursor selection or append as block
   const insertImageAtCursor = (base64Url: string, filename: string) => {
     const imgId = 'img_' + Date.now() + Math.floor(Math.random() * 1000);
     const selection = window.getSelection();
+    let inserted = false;
     
-    // Fallback: If no selection or cursor is outside the editor canvas, append to the end of the editor flow
-    if (!selection || !selection.rangeCount || !editorRef.current?.contains(selection.anchorNode)) {
-      if (editorRef.current) {
+    // Attempt selection-based cursor insertion
+    if (selection && selection.rangeCount > 0 && editorRef.current?.contains(selection.anchorNode)) {
+      try {
+        const range = selection.getRangeAt(0);
         const div = createImageBlock(base64Url, filename, imgId);
-        editorRef.current.appendChild(div);
-        setEditorHtml(editorRef.current.innerHTML);
-        showToast('¡Foto añadida al final del documento!');
+        
+        range.deleteContents();
+        range.insertNode(div);
+        
+        // Position text cursor after the newly inserted block
+        try {
+          range.setStartAfter(div);
+          range.setEndAfter(div);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (selErr) {
+          console.warn('Could not position cursor after inserted image block:', selErr);
+        }
+        
+        inserted = true;
+      } catch (domErr) {
+        console.warn('Failed selection insertion, falling back to append:', domErr);
       }
-      return;
     }
     
-    const range = selection.getRangeAt(0);
-    const div = createImageBlock(base64Url, filename, imgId);
-    
-    range.deleteContents();
-    range.insertNode(div);
-    
-    // Position text cursor after the newly inserted block
-    try {
-      range.setStartAfter(div);
-      range.setEndAfter(div);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    } catch (rangeErr) {
-      console.warn('Could not position cursor after inserted image block:', rangeErr);
+    // Fallback: append at the end of the editor flow if cursor insertion was not possible/failed
+    if (!inserted) {
+      if (editorRef.current) {
+        try {
+          const div = createImageBlock(base64Url, filename, imgId);
+          editorRef.current.appendChild(div);
+          showToast('¡Foto añadida al final del documento!');
+          inserted = true;
+        } catch (appendErr) {
+          console.error('Fatal: image block append failed:', appendErr);
+        }
+      }
+    } else {
+      showToast('¡Foto técnica insertada en la posición del cursor!');
     }
     
-    if (editorRef.current) {
+    if (inserted && editorRef.current) {
       setEditorHtml(editorRef.current.innerHTML);
     }
-    showToast('¡Foto técnica insertada en la posición del cursor!');
   };
 
   const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      insertImageAtCursor(reader.result as string, file.name);
-      if (imageUploadRef.current) imageUploadRef.current.value = '';
-    };
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        try {
+          insertImageAtCursor(reader.result as string, file.name);
+          if (imageUploadRef.current) imageUploadRef.current.value = '';
+        } catch (loadErr) {
+          console.error('Error inside FileReader onload callback:', loadErr);
+        }
+      };
+    } catch (selectErr) {
+      console.error('Error inside handleImageFileSelect event handler:', selectErr);
+    }
   };
 
   const handleSaveAnnotatedImage = (annotatedDataUrl: string) => {
