@@ -252,13 +252,3 @@
 .editor-content-area .cover-page-wrapper p {
   text-align: center !important;
 }
-
-/* Table of Contents custom table styles (removes default borders) */
-.editor-content-area table.toc-table,
-.editor-content-area table.toc-table tr,
-.editor-content-area table.toc-table td {
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  padding: 8px 0 !important;
-}
