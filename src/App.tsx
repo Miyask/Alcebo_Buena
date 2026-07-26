@@ -174,23 +174,43 @@ function AppContent() {
 
   // Persist States to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('alcebo_quotes', JSON.stringify(quotes));
+    try {
+      localStorage.setItem('alcebo_quotes', JSON.stringify(quotes));
+    } catch (e) {
+      console.error('Error saving alcebo_quotes to localStorage:', e);
+    }
   }, [quotes]);
 
   useEffect(() => {
-    localStorage.setItem('alcebo_templates', JSON.stringify(templates));
+    try {
+      localStorage.setItem('alcebo_templates', JSON.stringify(templates));
+    } catch (e) {
+      console.error('Error saving alcebo_templates to localStorage:', e);
+    }
   }, [templates]);
 
   useEffect(() => {
-    localStorage.setItem('alcebo_rules', JSON.stringify(rules));
+    try {
+      localStorage.setItem('alcebo_rules', JSON.stringify(rules));
+    } catch (e) {
+      console.error('Error saving alcebo_rules to localStorage:', e);
+    }
   }, [rules]);
 
   useEffect(() => {
-    localStorage.setItem('alcebo_config', JSON.stringify(config));
+    try {
+      localStorage.setItem('alcebo_config', JSON.stringify(config));
+    } catch (e) {
+      console.error('Error saving alcebo_config to localStorage:', e);
+    }
   }, [config]);
 
   useEffect(() => {
-    localStorage.setItem('alcebo_current_quote', JSON.stringify(draftQuote));
+    try {
+      localStorage.setItem('alcebo_current_quote', JSON.stringify(draftQuote));
+    } catch (e) {
+      console.error('Error saving alcebo_current_quote to localStorage:', e);
+    }
   }, [draftQuote]);
 
   // Callbacks for Quotes

@@ -738,6 +738,46 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   };
 
+  const resizeImageBase64 = (base64Url: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Url;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Compress to JPEG with 0.75 quality (highly optimized file size)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+          resolve(compressedBase64);
+        } else {
+          resolve(base64Url);
+        }
+      };
+      img.onerror = () => {
+        resolve(base64Url);
+      };
+    });
+  };
+
   const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = e.target.files?.[0];
@@ -745,9 +785,11 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
-          insertImageAtCursor(reader.result as string, file.name);
+          // Resize/compress the image to prevent LocalStorage Quota Exceeded error
+          const resizedBase64 = await resizeImageBase64(reader.result as string);
+          insertImageAtCursor(resizedBase64, file.name);
           if (imageUploadRef.current) imageUploadRef.current.value = '';
         } catch (loadErr) {
           console.error('Error inside FileReader onload callback:', loadErr);
