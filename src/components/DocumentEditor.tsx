@@ -92,7 +92,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (idx === 1) return match; // Skip logo
       const imgId = `img_template_${idx}`;
       const filename = idx === 2 ? 'Foto_Inspeccion_1.jpg' : idx === 3 ? 'Foto_Inspeccion_2.jpg' : 'Propuesta_Tecnica.jpg';
-      const caption = idx === 2 ? 'Fig: Zona afectada 1' : idx === 3 ? 'Fig: Zona afectada 2' : 'Fig: Detalle del sistema propuesto';
       
       return `
         <div class="image-container-block no-print-border" style="text-align: center; margin: 20px auto; padding: 12px; border: 2px dashed rgba(0,159,227,0.3); border-radius: 12px; position: relative; display: block; max-width: 580px;" contenteditable="false">
@@ -106,8 +105,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             </div>
           </div>
           <img src="data:image/${type};base64,${base64}" class="document-image" data-img-id="${imgId}" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
-          <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;">
-            ${caption}<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
+          <div class="no-print" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; font-family:sans-serif; padding:2px 0;">
+            Pulsa "Dibujar" para hacer anotaciones.
           </div>
         </div>
       `;
@@ -450,7 +449,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       // Patch old drafts that don't have cover-page-wrapper
       if (!docHtml.includes('cover-page-wrapper')) {
         docHtml = docHtml
-          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
+          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
           .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
       }
 
@@ -539,7 +538,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml(selectedBirds))
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, getSystemsHtml(selectedSystems))
-        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
+        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
         .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
         .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
@@ -678,8 +677,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         </button>
       </div>
       <img src="${base64Url}" class="document-image" data-img-id="${imgId}" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
-      <div contenteditable="true" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; outline:none; border-bottom:1px dashed transparent; font-family:sans-serif; min-height:18px; padding:2px 0;" placeholder="Escribe un pie de foto...">
-        Fig: Plano de obra (${filename})<span class="no-print">. Pulsa "Dibujar" para hacer anotaciones.</span>
+      <div class="no-print" style="font-size:11px; color:#64748B; font-style:italic; margin-top:8px; text-align:center; font-family:sans-serif; padding:2px 0;">
+        Pulsa "Dibujar" para hacer anotaciones.
       </div>
     `;
     return div;
@@ -1223,7 +1222,7 @@ Transcripción:
             .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
             .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml([detectedBird]))
             .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, wrapImagesInEditor(getSystemsHtml(detectedSystemsList)))
-            .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
+            .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
             .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
             .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
             .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
@@ -1371,9 +1370,10 @@ Transcripción:
 
     let processedHtmlContent = tempDiv.innerHTML;
 
-    // Convert page breaks to Word MSO break syntax and remove placeholder text "Foto Muestra"
+    // Convert page breaks to Word MSO break syntax and remove placeholder text and image captions
     processedHtmlContent = processedHtmlContent
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
+      .replace(/<div[^>]*>\s*Fig:[^<]*<\/div>/gi, '')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
       .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 20px; margin-bottom: 20px; page-break-after: always; mso-break-type:section-break">');
 
