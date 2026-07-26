@@ -1526,6 +1526,17 @@ ${fullHtml}
       let docXml = zip.file('word/document.xml').asText();
       let relsXml = zip.file('word/_rels/document.xml.rels').asText();
 
+      const base64ToUint8Array = (base64: string): Uint8Array => {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      };
+
+
       // Ensure ContentTypes has jpeg, png
       let contentTypesXml = zip.file('[Content_Types].xml').asText();
       if (!contentTypesXml.includes('Extension="png"')) {
@@ -1677,10 +1688,7 @@ ${fullHtml}
               childXml += translateNodeToWordXML(child);
             });
             
-            const isSectionTitle = /^\s*(1|2|3|4|5|6)\.-/i.test(el.textContent || '');
-            const prefixXml = isSectionTitle ? `<w:p><w:r><w:br w:type="page"/></w:r></w:p>` : '';
-
-            return prefixXml + `<w:p>
+            return `<w:p>
               <w:pPr>
                 <w:jc w:val="both"/>
                 <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
@@ -1692,10 +1700,7 @@ ${fullHtml}
           if (tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4') {
             const sz = tagName === 'h1' ? '32' : tagName === 'h2' ? '28' : '24';
             
-            const isSectionTitle = /^\s*(1|2|3|4|5|6)\.-/i.test(el.textContent || '');
-            const prefixXml = isSectionTitle ? `<w:p><w:r><w:br w:type="page"/></w:r></w:p>` : '';
-
-            return prefixXml + `<w:p>
+            return `<w:p>
               <w:pPr>
                 <w:rPr>
                   <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
@@ -1807,7 +1812,7 @@ ${fullHtml}
               const cleaned = cleanBase64(base64Part);
               
               const bTargetPath = `media/visit_photo_${nextRelIdNum}.${ext}`;
-              zip.file(`word/${bTargetPath}`, atob(cleaned), { binary: true });
+              zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
               
               relsXml = relsXml.replace(
                 '</Relationships>',
@@ -1867,14 +1872,16 @@ ${fullHtml}
         return '';
       };
 
-      // Remove all hr.page-break elements from sectionsDiv first to prevent duplicate page breaks
-      sectionsDiv.querySelectorAll('hr.page-break').forEach(el => el.remove());
-
-      // 4. Translate sections HTML from Section 1 onwards
+      // 4. Translate sections HTML from Section 1 onwards (preserving hr.page-break)
       let translatedXML = '';
       sectionsDiv.childNodes.forEach(child => {
         translatedXML += translateNodeToWordXML(child);
       });
+
+      // Guarantee Section 1 starts with a page break if it doesn't already
+      if (!translatedXML.trim().startsWith('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')) {
+        translatedXML = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' + translatedXML;
+      }
 
       // 5. Replace template XML body sections with translated XML
       const sec1Index = docXml.indexOf('1.-');
@@ -1886,8 +1893,18 @@ ${fullHtml}
         throw new Error('No se encontró el inicio de párrafo de la Sección 1.');
       }
 
-      const sectPrMatch = docXml.match(/<w:sectPr[^>]*>[\s\S]*?<\/w:sectPr>/i);
-      const sectPrXml = sectPrMatch ? sectPrMatch[0] : '';
+      // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
+      docXml = docXml.replace(
+        '<w:document ',
+        '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
+      );
+
+      // Extract the correct last section properties (Section Break #1) from the end of the body
+      const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
+      const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
+      const sectPrXml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
+        ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
+        : '';
 
       docXml = docXml.substring(0, lastParaStart) + translatedXML + sectPrXml + '</w:body></w:document>';
 
@@ -1895,7 +1912,7 @@ ${fullHtml}
       if (IMAGE_RED_BASE64) {
         const redData = IMAGE_RED_BASE64.split(',')[1];
         if (redData) {
-          zip.file('word/media/image_red_local.jpeg', atob(redData), { binary: true });
+          zip.file('word/media/image_red_local.jpeg', base64ToUint8Array(redData));
           relsXml = relsXml.replace(
             /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
             '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
