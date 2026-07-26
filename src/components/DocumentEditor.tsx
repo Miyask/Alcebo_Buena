@@ -450,7 +450,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       // Patch old drafts that don't have cover-page-wrapper
       if (!docHtml.includes('cover-page-wrapper')) {
         docHtml = docHtml
-          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
           .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
       }
 
@@ -539,7 +539,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml(selectedBirds))
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, getSystemsHtml(selectedSystems))
-        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
         .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
         .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
@@ -1223,7 +1223,7 @@ Transcripción:
             .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
             .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml([detectedBird]))
             .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, wrapImagesInEditor(getSystemsHtml(detectedSystemsList)))
-            .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 800px;"><p style="text-align: center; font-size: 24pt; margin-top: 50px;"><strong>PRESUPUESTO</strong></p>')
+            .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; margin-top: 10px;"><strong>PRESUPUESTO</strong></p>')
             .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
             .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
             .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
@@ -1315,7 +1315,7 @@ Transcripción:
       const imgId = img.getAttribute('data-img-id') || '';
       const isLogo = src.includes('logo') || alt.toLowerCase().includes('logo') || imgId.includes('logo') || !!img.closest('.cover-page-wrapper');
 
-      let pxWidth = isLogo ? 340 : 280;
+      let pxWidth = isLogo ? 250 : 280;
       let aspectRatio = 0.75;
 
       const imgEl = img as HTMLImageElement;
@@ -1375,7 +1375,7 @@ Transcripción:
     processedHtmlContent = processedHtmlContent
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
-      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 100px; margin-bottom: 100px; page-break-after: always; mso-break-type:section-break">');
+      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 20px; margin-bottom: 20px; page-break-after: always; mso-break-type:section-break">');
 
     // Replace all inline data URIs with MHTML Content-Location references and build MIME parts
     processedHtmlContent = processedHtmlContent.replace(/<img([^>]+)src="(data:image\/([^;]+);base64,([^"]+))"([^>]*)>/gi, (match, beforeSrc, dataUri, mimeType, base64Data, afterSrc) => {
@@ -1466,8 +1466,8 @@ ${cleanedBase64}`);
           .cover-page-wrapper {
             text-align: center;
             display: block;
-            margin-top: 100px;
-            margin-bottom: 100px;
+            margin-top: 20px;
+            margin-bottom: 20px;
             page-break-after: always;
           }
           .image-wrapper, .image-container-block {
@@ -1486,9 +1486,10 @@ ${cleanedBase64}`);
             margin: 10px auto;
           }
           .cover-page-wrapper img, img.logo, img[alt*="logo" i], img[alt*="Logo"] {
-            max-width: 340px !important;
+            max-width: 250px !important;
             height: auto !important;
             border: none !important;
+            margin: 15px auto;
           }
         </style>
       </head>
