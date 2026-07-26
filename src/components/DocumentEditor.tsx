@@ -1371,8 +1371,9 @@ Transcripción:
 
     let processedHtmlContent = tempDiv.innerHTML;
 
-    // Convert page breaks to Word MSO break syntax
+    // Convert page breaks to Word MSO break syntax and remove placeholder text "Foto Muestra"
     processedHtmlContent = processedHtmlContent
+      .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
       .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 100px; margin-bottom: 100px; page-break-after: always; mso-break-type:section-break">');
 
@@ -1675,6 +1676,7 @@ ${cleanedBase64}`);
       const yearStr = today.getFullYear().toString().substring(2);
 
       docXml = docXml
+        .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         .replace(/\[REF_CODE\]/g, finalRefCode)
         .replace(/\[CLIENT_NAME\]/g, clientNameInput.toUpperCase())
         .replace(/\[CLIENT_ADDRESS\]/g, clientAddressInput)
