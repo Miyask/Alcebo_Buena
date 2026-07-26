@@ -92,7 +92,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (idx === 1) return match; // Skip logo
       const imgId = `img_template_${idx}`;
       const filename = idx === 2 ? 'Foto_Inspeccion_1.jpg' : idx === 3 ? 'Foto_Inspeccion_2.jpg' : 'Propuesta_Tecnica.jpg';
-      const caption = idx === 2 ? 'Fig: Muestra de zona afectada 1' : idx === 3 ? 'Fig: Muestra de zona afectada 2' : 'Fig: Detalle del sistema propuesto';
+      const caption = idx === 2 ? 'Fig: Zona afectada 1' : idx === 3 ? 'Fig: Zona afectada 2' : 'Fig: Detalle del sistema propuesto';
       
       return `
         <div class="image-container-block no-print-border" style="text-align: center; margin: 20px auto; padding: 12px; border: 2px dashed rgba(0,159,227,0.3); border-radius: 12px; position: relative; display: block; max-width: 580px;" contenteditable="false">
@@ -288,8 +288,40 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       isFirstRender.current = false;
       return;
     }
-    setSaveStatus('dirty');
-  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3, customText, selectedTemplateId]);
+    
+    // Check if the change is a real modification compared to the quote prop
+    const isNameChanged = clientNameInput !== (quote.clientName || 'COMUNIDAD DE VECINOS');
+    const isAddressChanged = clientAddressInput !== (quote.clientAddress || 'Calle Principal s/n');
+    const isEmailChanged = clientEmailInput !== (quote.clientEmail || '');
+    const isMetersChanged = meters !== (quote.estimationLineal || 15);
+    const isDateChanged = quoteDate !== (quote.date || new Date().toISOString().split('T')[0]);
+    const isTextChanged = customText !== (quote.text || '');
+    const isTemplateChanged = selectedTemplateId !== (quote.templateId || 'temp-red');
+    
+    const isPrice1Changed = price1 !== (quote.price1 || '300.00');
+    const isPrice2Changed = price2 !== (quote.price2 || '150.00');
+    const isPrice3Changed = isNaN(parseFloat(price3)) ? false : parseFloat(price3) !== (quote.price3 ? parseFloat(quote.price3) : 450.00);
+    
+    const areBirdsChanged = JSON.stringify(selectedBirds) !== JSON.stringify(quote.birds || ['Palomas']);
+    const areSystemsChanged = JSON.stringify(selectedSystems) !== JSON.stringify(quote.systems || ['Red']);
+    
+    if (
+      isNameChanged || 
+      isAddressChanged || 
+      isEmailChanged || 
+      isMetersChanged || 
+      isDateChanged || 
+      isTextChanged || 
+      isTemplateChanged || 
+      isPrice1Changed || 
+      isPrice2Changed || 
+      isPrice3Changed || 
+      areBirdsChanged || 
+      areSystemsChanged
+    ) {
+      setSaveStatus('dirty');
+    }
+  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3, customText, selectedTemplateId, quote]);
 
   // Feature 5: Apply base template to editor DOM fields
   const handleApplyTemplate = (tempId: string) => {
@@ -676,10 +708,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     range.insertNode(div);
     
     // Position text cursor after the newly inserted block
-    range.setStartAfter(div);
-    range.setEndAfter(div);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    try {
+      range.setStartAfter(div);
+      range.setEndAfter(div);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch (rangeErr) {
+      console.warn('Could not position cursor after inserted image block:', rangeErr);
+    }
     
     if (editorRef.current) {
       setEditorHtml(editorRef.current.innerHTML);
