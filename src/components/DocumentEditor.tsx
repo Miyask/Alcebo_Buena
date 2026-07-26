@@ -1315,7 +1315,7 @@ Transcripción:
       const imgId = img.getAttribute('data-img-id') || '';
       const isLogo = src.includes('logo') || alt.toLowerCase().includes('logo') || imgId.includes('logo') || !!img.closest('.cover-page-wrapper');
 
-      let pxWidth = isLogo ? 220 : 280;
+      let pxWidth = isLogo ? 340 : 280;
       let aspectRatio = 0.75;
 
       const imgEl = img as HTMLImageElement;
@@ -1486,7 +1486,7 @@ ${cleanedBase64}`);
             margin: 10px auto;
           }
           .cover-page-wrapper img, img.logo, img[alt*="logo" i], img[alt*="Logo"] {
-            max-width: 200px !important;
+            max-width: 340px !important;
             height: auto !important;
             border: none !important;
           }
