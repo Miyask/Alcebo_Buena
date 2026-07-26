@@ -23,27 +23,57 @@ export default function App() {
 
   // Domain States (Initialized with localStorage or sensible defaults)
   const [quotes, setQuotes] = useState<Quote[]>(() => {
-    const stored = localStorage.getItem('alcebo_quotes');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.filter((q: Quote) => q.id !== 'q-example-1');
+    try {
+      const stored = localStorage.getItem('alcebo_quotes');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((q: Quote) => q && typeof q === 'object' && q.id !== 'q-example-1');
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing alcebo_quotes from localStorage:', e);
     }
     return [];
   });
 
   const [templates, setTemplates] = useState<Template[]>(() => {
-    const stored = localStorage.getItem('alcebo_templates');
-    return stored ? JSON.parse(stored) : DEFAULT_TEMPLATES;
+    try {
+      const stored = localStorage.getItem('alcebo_templates');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing alcebo_templates from localStorage:', e);
+    }
+    return DEFAULT_TEMPLATES;
   });
 
   const [rules, setRules] = useState<ConditionalText[]>(() => {
-    const stored = localStorage.getItem('alcebo_rules');
-    return stored ? JSON.parse(stored) : DEFAULT_CONDITIONAL_TEXTS;
+    try {
+      const stored = localStorage.getItem('alcebo_rules');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing alcebo_rules from localStorage:', e);
+    }
+    return DEFAULT_CONDITIONAL_TEXTS;
   });
 
   const [config, setConfig] = useState<SystemConfig>(() => {
-    const stored = localStorage.getItem('alcebo_config');
-    return stored ? JSON.parse(stored) : DEFAULT_CONFIG;
+    try {
+      const stored = localStorage.getItem('alcebo_config');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing alcebo_config from localStorage:', e);
+    }
+    return DEFAULT_CONFIG;
   });
 
   // Helper to generate a fresh new empty quote
@@ -64,8 +94,16 @@ export default function App() {
   });
 
   const [draftQuote, setDraftQuote] = useState<Quote>(() => {
-    const stored = localStorage.getItem('alcebo_current_quote');
-    return stored ? JSON.parse(stored) : getNewBlankQuote();
+    try {
+      const stored = localStorage.getItem('alcebo_current_quote');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing alcebo_current_quote from localStorage:', e);
+    }
+    return getNewBlankQuote();
   });
 
   // Persist States to localStorage whenever they change

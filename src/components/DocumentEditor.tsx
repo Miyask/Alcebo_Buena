@@ -300,7 +300,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     
     const isPrice1Changed = price1 !== (quote.price1 || '300.00');
     const isPrice2Changed = price2 !== (quote.price2 || '150.00');
-    const isPrice3Changed = isNaN(parseFloat(price3)) ? false : parseFloat(price3) !== (quote.price3 ? parseFloat(quote.price3) : 450.00);
+    const isPrice3Changed = price3 !== (quote.price3 || '450.00');
     
     const areBirdsChanged = JSON.stringify(selectedBirds) !== JSON.stringify(quote.birds || ['Palomas']);
     const areSystemsChanged = JSON.stringify(selectedSystems) !== JSON.stringify(quote.systems || ['Red']);
@@ -822,6 +822,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       systems: selectedSystems,
       estimationLineal: meters,
       totalCost: parseFloat(price3) || 0,
+      price1: price1,
+      price2: price2,
+      price3: price3,
       documentHtml: htmlContent,
       text: customText,
       templateId: selectedTemplateId
