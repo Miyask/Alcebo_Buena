@@ -1387,8 +1387,9 @@ Transcripción:
     processedHtmlContent = processedHtmlContent
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<div[^>]*>\s*Fig:[^<]*<\/div>/gi, '')
-      .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />')
-      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px;">');
+      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div class="Section1" style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px; position: relative;"><div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: \'Verdana\', sans-serif; letter-spacing: 6px; user-select: none;">presupuesto</div>')
+      .replace(/<\/div>\s*<hr class="page-break" \/>/gi, '</div><div class="Section2"><br style="page-break-before:always; mso-break-type:section-break" />')
+      .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />') + '</div>';
 
     // Replace all inline data URIs with MHTML Content-Location references and build MIME parts
     processedHtmlContent = processedHtmlContent.replace(/<img([^>]+)src="(data:image\/([^;]+);base64,([^"]+))"([^>]*)>/gi, (match, beforeSrc, dataUri, mimeType, base64Data, afterSrc) => {
@@ -1427,6 +1428,46 @@ ${cleanedBase64}`);
           @page {
             size: A4;
             margin: 2.5cm 2.0cm 2.5cm 2.0cm;
+            mso-header: h1;
+            mso-footer: f1;
+          }
+          @page Section1 {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.5cm 2.0cm;
+            mso-header: none;
+            mso-footer: none;
+          }
+          div.Section1 {
+            page: Section1;
+            position: relative;
+          }
+          @page Section2 {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.5cm 2.0cm;
+            mso-header: h1;
+            mso-footer: f1;
+          }
+          div.Section2 {
+            page: Section2;
+          }
+          p.MsoHeader, li.MsoHeader, div.MsoHeader {
+            margin: 0in;
+            margin-bottom: .0001pt;
+            font-size: 9.0pt;
+            font-family: "Calibri", sans-serif;
+            color: #009FE3;
+            font-weight: bold;
+            border-bottom: 1px solid #009FE3;
+            padding-bottom: 3px;
+          }
+          p.MsoFooter, li.MsoFooter, div.MsoFooter {
+            margin: 0in;
+            margin-bottom: .0001pt;
+            font-size: 9.0pt;
+            font-family: "Calibri", sans-serif;
+            color: #666666;
+            border-top: 1px solid #bec8d2;
+            padding-top: 4px;
           }
           body {
             font-family: 'Calibri', 'Arial', sans-serif;
@@ -1506,6 +1547,18 @@ ${cleanedBase64}`);
         </style>
       </head>
       <body>
+        <!-- Header & Footer MSO Definitions -->
+        <div style="mso-element: header;" id="h1">
+          <p class="MsoHeader">
+            ALCEBO - Control de Aves Urbanas
+          </p>
+        </div>
+
+        <div style="mso-element: footer;" id="f1">
+          <p class="MsoFooter" style="text-align: right;">
+            Página <span style="mso-field-code: PAGE;"></span> de <span style="mso-field-code: NUMPAGES;"></span>
+          </p>
+        </div>
         ${processedHtmlContent}
       </body>
       </html>
@@ -2052,16 +2105,6 @@ ${cleanedBase64}`);
                 {saveStatus === 'saved' ? '✓ Guardado' : saveStatus === 'saving' ? '⏳ Guardando...' : '● Cambios sin guardar'}
               </span>
               <span className="text-[10px] text-slate-350 no-print">|</span>
-              <a 
-                href="https://online-audio-converter.com/sp/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[10px] text-[#009FE3] hover:text-[#006491] font-bold underline flex items-center gap-0.5 cursor-pointer no-print"
-                title="Comprime o convierte tu vídeo/audio si supera el límite de tamaño de subida"
-              >
-                <span className="material-symbols-outlined text-[10px] leading-none block">compress</span>
-                Reducir tamaño de vídeo/audio
-              </a>
               {syncStatus.type !== 'idle' && (
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide select-none ${
                   syncStatus.type === 'loading' ? 'bg-sky-100 text-[#009FE3] animate-pulse' :
