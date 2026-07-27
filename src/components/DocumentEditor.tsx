@@ -1633,16 +1633,15 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Filter children to keep only from Section 1 onwards (avoiding duplicate Cover Page & Table of Contents)
+      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards
       let foundSec1 = false;
       const sectionsDiv = document.createElement('div');
       
       Array.from(tempDiv.children).forEach(child => {
         const el = child as HTMLElement;
         if (!foundSec1) {
-          const isH1H2 = el.tagName === 'H1' || el.tagName === 'H2' || !!el.querySelector('h1, h2');
           const text = (el.textContent || '').toUpperCase();
-          if (isH1H2 && (text.includes('1.-') || text.includes('1. -')) && text.includes('CONTROL DE AVES')) {
+          if (text.includes('1.-') || text.includes('1. -') || text.includes('CONTROL DE AVES') || text.includes('CONTENIDO')) {
             foundSec1 = true;
           }
         }
