@@ -1633,13 +1633,16 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Filter children to keep only from Section 1 onwards
+      // Filter children to keep only from Section 1 onwards (avoiding duplicate Cover Page & Table of Contents)
       let foundSec1 = false;
       const sectionsDiv = document.createElement('div');
       
       Array.from(tempDiv.children).forEach(child => {
+        const el = child as HTMLElement;
         if (!foundSec1) {
-          if (child.textContent?.includes('1.-') || child.innerHTML.includes('1.-')) {
+          const isH1H2 = el.tagName === 'H1' || el.tagName === 'H2' || !!el.querySelector('h1, h2');
+          const text = (el.textContent || '').toUpperCase();
+          if (isH1H2 && (text.includes('1.-') || text.includes('1. -')) && text.includes('CONTROL DE AVES')) {
             foundSec1 = true;
           }
         }
@@ -1652,6 +1655,14 @@ ${cleanedBase64}`);
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
       
+      // Inject vertical VML watermark shape into header2.xml so "presupuesto" appears on ALL pages 2+
+      let header2Xml = zip.file('word/header2.xml')?.asText() || '';
+      if (header2Xml && !header2Xml.includes('string="presupuesto"')) {
+        const vmlWatermarkXml = `<w:p><w:pPr><w:rPr><w:noProof/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:pict><v:shape id="watermark_presupuesto_h2" type="#_x0000_t136" style="position:absolute;margin-left:0;margin-top:0;width:421.45pt;height:95.4pt;z-index:-251657216;mso-position-horizontal:right;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" fillcolor="#e6e6e6" stroked="f" coordsize="21600,21600"><v:fill opacity="32768f"/><v:path/><v:textpath style="font-family:&quot;Calibri&quot;;font-size:72pt;font-weight:bold;v-text-kern:t" string="presupuesto"/><w10:wrap type="none"/><w10:anchorlock/></v:shape></w:pict></w:r></w:p>`;
+        header2Xml = header2Xml.replace('</w:hdr>', vmlWatermarkXml + '</w:hdr>');
+        zip.file('word/header2.xml', header2Xml);
+      }
+
       // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
       // We do this first so character indices computed later are correct.
       if (!docXml.includes('xmlns:wp=')) {
