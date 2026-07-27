@@ -1788,6 +1788,13 @@ ${cleanedBase64}`);
         .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
         .replace(/\[TELEFONO\]/g, '900 123 456');
 
+      if (!docXml.substring(0, docXml.indexOf('sectPr')).includes('Presidente')) {
+        docXml = docXml.replace(
+          '28001  Madrid',
+          `28001  Madrid</w:t></w:r></w:p><w:p><w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>Att: D. Presidente / Administrador de Fincas`
+        );
+      }
+
       // 3. Local variables and drawing XML generator
       let drawingIdCounter = 1000;
       const createDrawingMLXml = (rId: string, widthPt: number, heightPt: number, name: string) => {
