@@ -1428,13 +1428,11 @@ ${cleanedBase64}`);
           @page {
             size: A4;
             margin: 2.5cm 2.0cm 2.5cm 2.0cm;
-            mso-header: h1;
-            mso-footer: f1;
           }
           @page Section1 {
             size: A4;
             margin: 2.5cm 2.0cm 2.5cm 2.0cm;
-            mso-header: h0;
+            mso-header: none;
             mso-footer: none;
           }
           div.Section1 {
@@ -1449,26 +1447,6 @@ ${cleanedBase64}`);
           }
           div.Section2 {
             page: Section2;
-            position: relative;
-          }
-          p.MsoHeader, li.MsoHeader, div.MsoHeader {
-            margin: 0in;
-            margin-bottom: .0001pt;
-            font-size: 9.0pt;
-            font-family: "Calibri", sans-serif;
-            color: #009FE3;
-            font-weight: bold;
-            border-bottom: 1px solid #009FE3;
-            padding-bottom: 3px;
-          }
-          p.MsoFooter, li.MsoFooter, div.MsoFooter {
-            margin: 0in;
-            margin-bottom: .0001pt;
-            font-size: 9.0pt;
-            font-family: "Calibri", sans-serif;
-            color: #666666;
-            border-top: 1px solid #bec8d2;
-            padding-top: 4px;
           }
           body {
             font-family: 'Calibri', 'Arial', sans-serif;
@@ -1549,24 +1527,24 @@ ${cleanedBase64}`);
       </head>
       <body>
         <!-- Header & Footer MSO Definitions -->
-        <div style="mso-element: header;" id="h0">
-          <div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'Verdana', sans-serif; letter-spacing: 6px; user-select: none;">
-            presupuesto
-          </div>
-        </div>
-
         <div style="mso-element: header;" id="h1">
-          <p class="MsoHeader">
-            ALCEBO - Control de Aves Urbanas
-          </p>
-          <div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'Verdana', sans-serif; letter-spacing: 6px; user-select: none;">
-            presupuesto
-          </div>
+          <table style="width: 100%; border-bottom: 1px solid #009FE3; padding-bottom: 4px; font-size: 8pt; font-family: 'Calibri', sans-serif; color: #555;">
+            <tr>
+              <td style="border: none; text-align: left; vertical-align: middle;">
+                <strong style="color: #009FE3;">ALCEBO CONTROL DE PLAGAS</strong><br/>
+                C/ Los Olivos, 3 - 45200 Illescas (Toledo)
+              </td>
+              <td style="border: none; text-align: right; vertical-align: middle;">
+                Tl. 925 541 862<br/>
+                alcebo@alcebo.com
+              </td>
+            </tr>
+          </table>
         </div>
 
         <div style="mso-element: footer;" id="f1">
-          <p class="MsoFooter" style="text-align: right;">
-            Página <span style="mso-field-code: PAGE;"></span> de <span style="mso-field-code: NUMPAGES;"></span>
+          <p style="text-align: right; font-size: 9pt; color: #666; border-top: 1px solid #bec8d2; padding-top: 4px;">
+            Página <span style="mso-field-code: PAGE;"></span>
           </p>
         </div>
         ${processedHtmlContent}
