@@ -2001,17 +2001,21 @@ ${cleanedBase64}`);
         translatedXML = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' + translatedXML;
       }
 
-      // 5. Replace template XML body sections with translated XML
-      const sec1Index = docXml.indexOf('1.-');
-      if (sec1Index === -1) {
-        throw new Error('No se encontró el ancla de la Sección 1 en la plantilla base.');
+      // 5. Replace template XML body sections with translated XML at exact paragraph boundary
+      let coverPageEndIndex = -1;
+      const contenidoMatch = docXml.match(/<w:p(?=[\s>])[\s\S]*?(?:CONTENIDO|1\.-|CONTROL DE AVES)[\s\S]*?<\/w:p>/i);
+      if (contenidoMatch) {
+        coverPageEndIndex = docXml.indexOf(contenidoMatch[0]);
       }
-      const lastParaStart = docXml.lastIndexOf('<w:p', sec1Index);
-      if (lastParaStart === -1) {
-        throw new Error('No se encontró el inicio de párrafo de la Sección 1.');
+      if (coverPageEndIndex === -1) {
+        const fallBackIndex = docXml.indexOf('1.-');
+        if (fallBackIndex !== -1) {
+          coverPageEndIndex = docXml.lastIndexOf('<w:p', fallBackIndex);
+        }
       }
-
-
+      if (coverPageEndIndex === -1) {
+        throw new Error('No se encontró la frontera del contenido en la plantilla base.');
+      }
 
       // Extract the correct last section properties (Section Break #1) from the end of the body
       const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
@@ -2020,7 +2024,7 @@ ${cleanedBase64}`);
         ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
         : '';
 
-      docXml = docXml.substring(0, lastParaStart) + translatedXML + sectPrXml + '</w:body></w:document>';
+      docXml = docXml.substring(0, coverPageEndIndex) + translatedXML + sectPrXml + '</w:body></w:document>';
 
       // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
       if (IMAGE_RED_BASE64) {
