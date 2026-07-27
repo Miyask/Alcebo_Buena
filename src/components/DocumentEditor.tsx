@@ -2038,16 +2038,21 @@ ${cleanedBase64}`);
         }
       }
 
-      // 5. Remove sectPr #1 from P13 and re-insert after P19 (Att: D. Presidente) so all client details fit on Page 1 (Portada)
-      const sectPr1Regex = /<w:sectPr w:rsidR="0037436C"[\s\S]*?<\/w:sectPr>/;
-      docXml = docXml.replace(sectPr1Regex, '');
+      // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
+      const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
+      zip.file('word/header1.xml', emptyHeader1);
+
+      // Extract native coverXml (Page 1) strictly up to sectPr #1 inside paragraph P13
+      const sectPr1Match = docXml.match(/<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*?<w:sectPr[\s\S]*?<\/w:sectPr>(?:(?!<\/w:pPr>)[\s\S])*?<\/w:pPr>/);
 
       let coverXml = '';
-      const attPos = docXml.indexOf('Att: D.');
-      if (attPos !== -1) {
-        const p19End = docXml.indexOf('</w:p>', attPos) + 6;
-        const cleanSectPr1 = `<w:p><w:pPr><w:sectPr w:rsidR="0037436C" w:rsidRPr="00504724" w:rsidSect="008656C1"><w:headerReference w:type="default" r:id="rId9"/><w:footerReference w:type="default" r:id="rId10"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2098" w:right="1247" w:bottom="1418" w:left="1701" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:pPr></w:p>`;
-        coverXml = docXml.substring(0, p19End) + cleanSectPr1;
+      if (sectPr1Match) {
+        const coverEndIndex = docXml.indexOf(sectPr1Match[0]) + sectPr1Match[0].length;
+        coverXml = docXml.substring(0, coverEndIndex);
+        if (!coverXml.trim().endsWith('</w:p>')) {
+          coverXml += '</w:p>';
+        }
       } else {
         const contenidoPos = docXml.indexOf('CONTENIDO');
         const sec1Pos = docXml.indexOf('1.-');
