@@ -1752,6 +1752,13 @@ ${cleanedBase64}`);
 
       docXml = docXml
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
+        // Replace native template @@@@ placeholders
+        .replace(/(Ref:[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
+        .replace(/(Com\.\s*Prop\.\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
+        .replace(/(C\/\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
+        .replace(/(28<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
+        .replace(/(D\.\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
+        // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
         .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
         .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(clientAddressInput))
