@@ -1633,7 +1633,7 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards
+      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards (ignoring duplicate Cover Page elements)
       let foundSec1 = false;
       const sectionsDiv = document.createElement('div');
       
@@ -1647,7 +1647,10 @@ ${cleanedBase64}`);
           }
         }
         if (foundSec1) {
-          sectionsDiv.appendChild(child.cloneNode(true));
+          // Extra safety: do not append duplicate cover logo or duplicate client details block
+          if (!el.querySelector('img[src*="logo"]') && !text.includes('INFORME TÉCNICO') && !text.includes('PRESUPUESTO PARA')) {
+            sectionsDiv.appendChild(child.cloneNode(true));
+          }
         }
       });
 
@@ -1665,11 +1668,11 @@ ${cleanedBase64}`);
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
       
-      // Inject vertical VML watermark shape into header2.xml so "presupuesto" appears on ALL pages 2+
+      // Inject native vertical right-margin VML watermark shape into header2.xml so "presupuesto" appears vertically on the right margin of ALL pages 2+
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
-      if (header2Xml && !header2Xml.includes('string="presupuesto"')) {
-        const vmlWatermarkXml = `<w:p><w:pPr><w:rPr><w:noProof/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:pict><v:shape id="watermark_presupuesto_h2" type="#_x0000_t136" style="position:absolute;margin-left:0;margin-top:0;width:421.45pt;height:95.4pt;z-index:-251657216;mso-position-horizontal:right;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" fillcolor="#e6e6e6" stroked="f" coordsize="21600,21600"><v:fill opacity="32768f"/><v:path/><v:textpath style="font-family:&quot;Calibri&quot;;font-size:72pt;font-weight:bold;v-text-kern:t" string="presupuesto"/><w10:wrap type="none"/><w10:anchorlock/></v:shape></w:pict></w:r></w:p>`;
-        header2Xml = header2Xml.replace('</w:hdr>', vmlWatermarkXml + '</w:hdr>');
+      if (header2Xml && !header2Xml.includes('watermark_presupuesto_vertical_right')) {
+        const verticalRightVmlWatermark = `<w:p><w:pPr><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:noProof/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:pict><v:shape id="watermark_presupuesto_vertical_right" type="#_x0000_t202" style="position:absolute;left:0;text-align:left;margin-left:424.15pt;margin-top:10.55pt;width:126pt;height:397.75pt;z-index:251658752" filled="f" stroked="f"><v:textbox style="layout-flow:vertical;mso-layout-flow-alt:bottom-to-top;mso-next-textbox:#watermark_presupuesto_vertical_right"><w:txbxContent><w:p><w:pPr><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr><w:t>presupuesto</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape></w:pict></w:r></w:p>`;
+        header2Xml = header2Xml.replace('</w:hdr>', verticalRightVmlWatermark + '</w:hdr>');
         zip.file('word/header2.xml', header2Xml);
       }
 
