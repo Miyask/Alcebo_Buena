@@ -1639,8 +1639,9 @@ ${cleanedBase64}`);
       
       Array.from(tempDiv.children).forEach(child => {
         const el = child as HTMLElement;
+        if (el.classList.contains('cover-page-wrapper')) return;
+        const text = (el.textContent || '').toUpperCase();
         if (!foundSec1) {
-          const text = (el.textContent || '').toUpperCase();
           if (text.includes('1.-') || text.includes('1. -') || text.includes('CONTROL DE AVES') || text.includes('CONTENIDO')) {
             foundSec1 = true;
           }
@@ -1649,6 +1650,16 @@ ${cleanedBase64}`);
           sectionsDiv.appendChild(child.cloneNode(true));
         }
       });
+
+      // Fallback: If sectionsDiv is empty, append all children except cover page
+      if (sectionsDiv.childNodes.length === 0) {
+        Array.from(tempDiv.children).forEach(child => {
+          const el = child as HTMLElement;
+          if (!el.classList.contains('cover-page-wrapper')) {
+            sectionsDiv.appendChild(child.cloneNode(true));
+          }
+        });
+      }
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
@@ -2012,6 +2023,17 @@ ${cleanedBase64}`);
       sectionsDiv.childNodes.forEach(child => {
         translatedXML += translateNodeToWordXML(child);
       });
+
+      // Guarantee customText (audio/video inspection transcription) is exported in Section 5/body
+      if (customText && customText.trim() && !translatedXML.toLowerCase().includes(customText.trim().substring(0, Math.min(30, customText.trim().length)).toLowerCase())) {
+        const customTextXml = `<w:p><w:pPr><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t>Notas de Inspección / Transcripción de Audio:</w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t xml:space="preserve">${escapeXml(customText)}</w:t></w:r></w:p>`;
+        
+        if (translatedXML.includes('6.-')) {
+          translatedXML = translatedXML.replace('<w:t>6.-', customTextXml + '<w:t>6.-');
+        } else {
+          translatedXML += customTextXml;
+        }
+      }
 
       // 5. Remove sectPr #1 from P13 and re-insert after P19 (Att: D. Presidente) so all client details fit on Page 1 (Portada)
       const sectPr1Regex = /<w:sectPr w:rsidR="0037436C"[\s\S]*?<\/w:sectPr>/;
