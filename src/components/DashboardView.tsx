@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Quote, SystemConfig } from '../types';
+import { extractAudioFromMediaFile } from '../utils/audioCompressor';
 
 interface DashboardViewProps {
   onAddQuote: (newQuote: Quote) => void;
@@ -103,11 +104,17 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     setNotes('');
 
     try {
+      const { blob: compressedBlob } = await extractAudioFromMediaFile(
+        file,
+        (percent) => setProgress(percent)
+      );
+      setProgress(65);
+
       const userKey = config?.groqApiKey?.trim();
       const userLlmKey = config?.llmApiKey?.trim();
 
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedBlob);
       reader.onload = async () => {
         const base64Uri = reader.result as string;
 

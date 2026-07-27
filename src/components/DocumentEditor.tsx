@@ -7,6 +7,7 @@ import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 import PizZip from 'pizzip';
 import { WORD_TEMPLATE_BASE64 } from '../data/wordTemplateBase64';
 import { BIRDS_DATA } from '../data/birdsData';
+import { extractAudioFromMediaFile } from '../utils/audioCompressor';
 
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
@@ -910,11 +911,23 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     setVideoProgress(10);
 
     try {
+      showToast('⚡ Reduciendo y comprimiendo archivo de vídeo/audio en tu navegador...');
+      const { blob: compressedBlob, originalSizeMB, compressedSizeMB, ratio } = await extractAudioFromMediaFile(
+        file,
+        (percent) => setVideoProgress(percent)
+      );
+
+      if (Number(ratio) > 0) {
+        showToast(`✅ Vídeo reducido de ${originalSizeMB} MB a ${compressedSizeMB} MB (-${ratio}%)`);
+      }
+
+      setVideoProgress(65);
+
       const userKey = config?.groqApiKey?.trim();
       const userLlmKey = config?.llmApiKey?.trim();
 
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedBlob);
       reader.onload = async () => {
         const base64Uri = reader.result as string;
         
