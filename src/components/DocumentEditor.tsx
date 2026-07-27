@@ -2045,21 +2045,27 @@ ${cleanedBase64}`);
         }
       }
 
-      // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
-      const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
-      zip.file('word/header1.xml', emptyHeader1);
+      // 5. Extract native coverXml (Page 1) including full closed Presupuesto para client box
+      // Strip obsolete w:smartTag elements from header1Xml, header2Xml, footer1Xml and docXml to prevent XML validation errors in Word
+      let header1Xml = zip.file('word/header1.xml')?.asText() || '';
+      let footer1Xml = zip.file('word/footer1.xml')?.asText() || '';
+      
+      const stripSmartTags = (xml: string): string => {
+        if (!xml) return '';
+        return xml.replace(/<w:smartTag[^>]*>([\s\S]*?)<\/w:smartTag>/gi, '$1');
+      };
 
-      // Extract native coverXml (Page 1) strictly up to sectPr #1 inside paragraph P13
-      const sectPr1Match = docXml.match(/<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*?<w:sectPr[\s\S]*?<\/w:sectPr>(?:(?!<\/w:pPr>)[\s\S])*?<\/w:pPr>/);
+      if (header1Xml) zip.file('word/header1.xml', stripSmartTags(header1Xml));
+      if (footer1Xml) zip.file('word/footer1.xml', stripSmartTags(footer1Xml));
+      docXml = stripSmartTags(docXml);
 
       let coverXml = '';
-      if (sectPr1Match) {
-        const coverEndIndex = docXml.indexOf(sectPr1Match[0]) + sectPr1Match[0].length;
-        coverXml = docXml.substring(0, coverEndIndex);
-        if (!coverXml.trim().endsWith('</w:p>')) {
-          coverXml += '</w:p>';
-        }
+      const attPos = docXml.indexOf('Presidente');
+      if (attPos !== -1) {
+        const txbxEnd = docXml.indexOf('</w:txbxContent>', attPos);
+        const shapeEnd = txbxEnd !== -1 ? docXml.indexOf('</w:p>', txbxEnd) + 6 : docXml.indexOf('</w:p>', attPos) + 6;
+        const cleanSectPr1 = `<w:p><w:pPr><w:sectPr w:rsidR="0037436C" w:rsidRPr="00504724" w:rsidSect="008656C1"><w:headerReference w:type="default" r:id="rId9"/><w:footerReference w:type="default" r:id="rId10"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2098" w:right="1247" w:bottom="1418" w:left="1701" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:pPr></w:p>`;
+        coverXml = docXml.substring(0, shapeEnd) + cleanSectPr1;
       } else {
         const contenidoPos = docXml.indexOf('CONTENIDO');
         const sec1Pos = docXml.indexOf('1.-');
