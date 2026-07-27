@@ -2027,9 +2027,13 @@ ${cleanedBase64}`);
         ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
         : '';
 
-      // Ensure headerReference type="first" r:id="rId14" exists
+      // Find exact relationship ID for header1.xml in relsXml (empty cover page header)
+      const header1Match = relsXml.match(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="header1\.xml"/i);
+      const firstHeaderRelId = header1Match ? header1Match[1] : 'rId9';
+
+      // Ensure headerReference type="first" exists with the correct relationship ID
       if (!sectPrXml.includes('type="first"')) {
-        sectPrXml = sectPrXml.replace('<w:headerReference', '<w:headerReference w:type="first" r:id="rId14"/><w:headerReference');
+        sectPrXml = sectPrXml.replace('<w:headerReference', `<w:headerReference w:type="first" r:id="${firstHeaderRelId}"/><w:headerReference`);
       }
 
       // Ensure <w:titlePg/> is inserted inside sectPr before </w:sectPr> (correct OpenXML schema position)
