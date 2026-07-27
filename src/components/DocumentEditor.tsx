@@ -2005,11 +2005,15 @@ ${cleanedBase64}`);
       let cutIndex = -1;
       const contenidoPos = docXml.indexOf('CONTENIDO');
       const sec1Pos = docXml.indexOf('1.-');
+      const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
 
-      if (contenidoPos !== -1) {
-        cutIndex = docXml.lastIndexOf('<w:p', contenidoPos);
-      } else if (sec1Pos !== -1) {
-        cutIndex = docXml.lastIndexOf('<w:p', sec1Pos);
+      if (targetPos !== -1) {
+        const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
+        if (prevCloseP !== -1) {
+          cutIndex = prevCloseP + 6; // Exactly after </w:p> (6 chars)
+        } else {
+          cutIndex = docXml.lastIndexOf('<w:p', targetPos);
+        }
       }
 
       if (cutIndex === -1) {
@@ -2023,9 +2027,14 @@ ${cleanedBase64}`);
         ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
         : '';
 
-      // Ensure sectPr has <w:titlePg/> so Page 1 (Portada) has NO top header box!
+      // Ensure headerReference type="first" r:id="rId14" exists
+      if (!sectPrXml.includes('type="first"')) {
+        sectPrXml = sectPrXml.replace('<w:headerReference', '<w:headerReference w:type="first" r:id="rId14"/><w:headerReference');
+      }
+
+      // Ensure <w:titlePg/> is inserted inside sectPr before </w:sectPr> (correct OpenXML schema position)
       if (!sectPrXml.includes('<w:titlePg/>') && !sectPrXml.includes('<w:titlePg')) {
-        sectPrXml = sectPrXml.replace('<w:sectPr', '<w:sectPr><w:titlePg/>');
+        sectPrXml = sectPrXml.replace('</w:sectPr>', '<w:titlePg/></w:sectPr>');
       }
 
       docXml = docXml.substring(0, cutIndex) + translatedXML + sectPrXml + '</w:body></w:document>';
