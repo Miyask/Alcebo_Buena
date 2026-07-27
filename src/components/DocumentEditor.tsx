@@ -1996,52 +1996,39 @@ ${cleanedBase64}`);
         translatedXML += translateNodeToWordXML(child);
       });
 
-      // Guarantee Section 1 starts with a page break if it doesn't already
-      if (!translatedXML.trim().startsWith('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')) {
-        translatedXML = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' + translatedXML;
-      }
+      // 5. Preserve native Cover Page Section Break (sectPr #1) inside paragraph P23
+      const sectPr1Match = docXml.match(/<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*?<w:sectPr[\s\S]*?<\/w:sectPr>(?:(?!<\/w:pPr>)[\s\S])*?<\/w:pPr>/);
 
-      // 5. Replace template XML body sections with translated XML at exact paragraph boundary
-      let cutIndex = -1;
-      const contenidoPos = docXml.indexOf('CONTENIDO');
-      const sec1Pos = docXml.indexOf('1.-');
-      const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
-
-      if (targetPos !== -1) {
-        const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
-        if (prevCloseP !== -1) {
-          cutIndex = prevCloseP + 6; // Exactly after </w:p> (6 chars)
-        } else {
-          cutIndex = docXml.lastIndexOf('<w:p', targetPos);
+      let coverXml = '';
+      if (sectPr1Match) {
+        const coverEndIndex = docXml.indexOf(sectPr1Match[0]) + sectPr1Match[0].length;
+        coverXml = docXml.substring(0, coverEndIndex);
+        if (!coverXml.trim().endsWith('</w:p>')) {
+          coverXml += '</w:p>';
         }
+      } else {
+        const contenidoPos = docXml.indexOf('CONTENIDO');
+        const sec1Pos = docXml.indexOf('1.-');
+        const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
+        let cutIndex = -1;
+        if (targetPos !== -1) {
+          const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
+          cutIndex = prevCloseP !== -1 ? prevCloseP + 6 : docXml.lastIndexOf('<w:p', targetPos);
+        }
+        if (cutIndex === -1) {
+          throw new Error('No se encontró la frontera del contenido en la plantilla base.');
+        }
+        coverXml = docXml.substring(0, cutIndex);
       }
 
-      if (cutIndex === -1) {
-        throw new Error('No se encontró la frontera del contenido en la plantilla base.');
-      }
-
-      // Extract the correct last section properties (Section Break #1) from the end of the body
+      // Extract native body sectPr #2 for Sections 2+ from the end of the template
       const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
       const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
-      let sectPrXml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
+      const sectPr2Xml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
         ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
         : '';
 
-      // Find exact relationship ID for header1.xml in relsXml (empty cover page header)
-      const header1Match = relsXml.match(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="header1\.xml"/i);
-      const firstHeaderRelId = header1Match ? header1Match[1] : 'rId9';
-
-      // Ensure headerReference type="first" exists with the correct relationship ID
-      if (!sectPrXml.includes('type="first"')) {
-        sectPrXml = sectPrXml.replace('<w:headerReference', `<w:headerReference w:type="first" r:id="${firstHeaderRelId}"/><w:headerReference`);
-      }
-
-      // Ensure <w:titlePg/> is inserted inside sectPr before </w:sectPr> (correct OpenXML schema position)
-      if (!sectPrXml.includes('<w:titlePg/>') && !sectPrXml.includes('<w:titlePg')) {
-        sectPrXml = sectPrXml.replace('</w:sectPr>', '<w:titlePg/></w:sectPr>');
-      }
-
-      docXml = docXml.substring(0, cutIndex) + translatedXML + sectPrXml + '</w:body></w:document>';
+      docXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
 
       // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
       if (IMAGE_RED_BASE64) {
