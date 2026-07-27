@@ -1717,6 +1717,16 @@ ${cleanedBase64}`);
       }
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
 
+      const escapeXml = (str: string): string => {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+      };
+
       // Replace metadata placeholders in the template (such as Cover Page)
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
       let today = quoteDate ? new Date(quoteDate) : new Date();
@@ -1731,19 +1741,19 @@ ${cleanedBase64}`);
 
       docXml = docXml
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
-        .replace(/\[REF_CODE\]/g, finalRefCode)
-        .replace(/\[CLIENT_NAME\]/g, clientNameInput.toUpperCase())
-        .replace(/\[CLIENT_ADDRESS\]/g, clientAddressInput)
+        .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
+        .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
+        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(clientAddressInput))
         .replace(/\[POSTAL_CODE\]/g, '28001')
         .replace(/\[POSTAL_CODE_PREFIX\]/g, '280')
         .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
-        .replace(/\[DAY\]/g, dayStr)
-        .replace(/\[MONTH\]/g, monthStr)
-        .replace(/\[YEAR\]/g, yearStr)
-        .replace(/\[PLAGA\]/g, selectedBird)
-        .replace(/\[PRECIO_1\]/g, quote.price1 || price1)
-        .replace(/\[PRECIO_2\]/g, quote.price2 || price2)
-        .replace(/\[PRECIO_3\]/g, quote.price3 || price3)
+        .replace(/\[DAY\]/g, escapeXml(dayStr))
+        .replace(/\[MONTH\]/g, escapeXml(monthStr))
+        .replace(/\[YEAR\]/g, escapeXml(yearStr))
+        .replace(/\[PLAGA\]/g, escapeXml(selectedBird))
+        .replace(/\[PRECIO_1\]/g, escapeXml(quote.price1 || price1))
+        .replace(/\[PRECIO_2\]/g, escapeXml(quote.price2 || price2))
+        .replace(/\[PRECIO_3\]/g, escapeXml(quote.price3 || price3))
         .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
         .replace(/\[TELEFONO\]/g, '900 123 456');
 
@@ -1753,18 +1763,15 @@ ${cleanedBase64}`);
         const docPrId = ++drawingIdCounter;
         const cx = Math.round(widthPt * 12700);
         const cy = Math.round(heightPt * 12700);
-        // Declare ALL namespaces inline - safest for Word 2013 compatibility
-        // Same structure as the working test_image_word.docx test
         return `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
       };
 
-      // Recursive DOM node to Word XML translator
+      // Recursive DOM node to Word XML translator with XML escaping
       const translateNodeToWordXML = (node: Node): string => {
         if (node.nodeType === Node.TEXT_NODE) {
           const text = node.textContent || '';
           if (!text.trim() && text.includes('\n')) return '';
-          const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t xml:space="preserve">${escapedText}</w:t></w:r>`;
+          return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
         }
         
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -1772,17 +1779,17 @@ ${cleanedBase64}`);
           const tagName = el.tagName.toLowerCase();
           
           if (tagName === 'strong' || tagName === 'b') {
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr><w:t xml:space="preserve">${el.textContent || ''}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr><w:t xml:space="preserve">${el.textContent || ''}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'u') {
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${el.textContent || ''}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'span') {
             const hasBold = el.style.fontWeight === 'bold' || el.classList.contains('font-bold');
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${el.textContent || ''}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'br') {
             return '<w:r><w:br/></w:r>';
@@ -1827,7 +1834,7 @@ ${cleanedBase64}`);
                   <w:color w:val="009FE3"/>
                   <w:sz w:val="${sz}"/>
                 </w:rPr>
-                <w:t>${el.textContent || ''}</w:t>
+                <w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t>
               </w:r>
             </w:p>`;
           }
