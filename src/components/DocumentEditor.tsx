@@ -1434,7 +1434,7 @@ ${cleanedBase64}`);
           @page Section1 {
             size: A4;
             margin: 2.5cm 2.0cm 2.5cm 2.0cm;
-            mso-header: none;
+            mso-header: h0;
             mso-footer: none;
           }
           div.Section1 {
@@ -1449,6 +1449,7 @@ ${cleanedBase64}`);
           }
           div.Section2 {
             page: Section2;
+            position: relative;
           }
           p.MsoHeader, li.MsoHeader, div.MsoHeader {
             margin: 0in;
@@ -1548,10 +1549,19 @@ ${cleanedBase64}`);
       </head>
       <body>
         <!-- Header & Footer MSO Definitions -->
+        <div style="mso-element: header;" id="h0">
+          <div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'Verdana', sans-serif; letter-spacing: 6px; user-select: none;">
+            presupuesto
+          </div>
+        </div>
+
         <div style="mso-element: header;" id="h1">
           <p class="MsoHeader">
             ALCEBO - Control de Aves Urbanas
           </p>
+          <div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'Verdana', sans-serif; letter-spacing: 6px; user-select: none;">
+            presupuesto
+          </div>
         </div>
 
         <div style="mso-element: footer;" id="f1">
