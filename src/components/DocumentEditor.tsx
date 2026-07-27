@@ -2002,29 +2002,33 @@ ${cleanedBase64}`);
       }
 
       // 5. Replace template XML body sections with translated XML at exact paragraph boundary
-      let coverPageEndIndex = -1;
-      const contenidoMatch = docXml.match(/<w:p(?=[\s>])[\s\S]*?(?:CONTENIDO|1\.-|CONTROL DE AVES)[\s\S]*?<\/w:p>/i);
-      if (contenidoMatch) {
-        coverPageEndIndex = docXml.indexOf(contenidoMatch[0]);
+      let cutIndex = -1;
+      const contenidoPos = docXml.indexOf('CONTENIDO');
+      const sec1Pos = docXml.indexOf('1.-');
+
+      if (contenidoPos !== -1) {
+        cutIndex = docXml.lastIndexOf('<w:p', contenidoPos);
+      } else if (sec1Pos !== -1) {
+        cutIndex = docXml.lastIndexOf('<w:p', sec1Pos);
       }
-      if (coverPageEndIndex === -1) {
-        const fallBackIndex = docXml.indexOf('1.-');
-        if (fallBackIndex !== -1) {
-          coverPageEndIndex = docXml.lastIndexOf('<w:p', fallBackIndex);
-        }
-      }
-      if (coverPageEndIndex === -1) {
+
+      if (cutIndex === -1) {
         throw new Error('No se encontró la frontera del contenido en la plantilla base.');
       }
 
       // Extract the correct last section properties (Section Break #1) from the end of the body
       const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
       const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
-      const sectPrXml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
+      let sectPrXml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
         ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
         : '';
 
-      docXml = docXml.substring(0, coverPageEndIndex) + translatedXML + sectPrXml + '</w:body></w:document>';
+      // Ensure sectPr has <w:titlePg/> so Page 1 (Portada) has NO top header box!
+      if (!sectPrXml.includes('<w:titlePg/>') && !sectPrXml.includes('<w:titlePg')) {
+        sectPrXml = sectPrXml.replace('<w:sectPr', '<w:sectPr><w:titlePg/>');
+      }
+
+      docXml = docXml.substring(0, cutIndex) + translatedXML + sectPrXml + '</w:body></w:document>';
 
       // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
       if (IMAGE_RED_BASE64) {
