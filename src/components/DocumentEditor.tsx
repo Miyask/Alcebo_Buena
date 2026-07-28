@@ -1682,10 +1682,45 @@ ${cleanedBase64}`);
   const handleExportDocx = async () => {
     if (!editorRef.current) return;
     
+    // Pre-step: convert all live img elements with blob: or http: src to data: URLs
+    // so they are embedded when we serialize innerHTML below
+    const liveImgs = Array.from(editorRef.current.querySelectorAll('img'));
+    await Promise.all(liveImgs.map(async (imgEl) => {
+      const src = imgEl.getAttribute('src') || '';
+      if (src.startsWith('blob:') || (src.startsWith('http') && !src.includes('data:'))) {
+        try {
+          const resp = await fetch(src);
+          const blob = await resp.blob();
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          imgEl.setAttribute('src', dataUrl);
+        } catch (e) {
+          // Try canvas fallback for same-origin images
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = (imgEl as HTMLImageElement).naturalWidth || 300;
+            canvas.height = (imgEl as HTMLImageElement).naturalHeight || 200;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(imgEl as HTMLImageElement, 0, 0);
+              imgEl.setAttribute('src', canvas.toDataURL('image/jpeg'));
+            }
+          } catch (e2) {
+            console.warn('Could not convert img to data URL:', src, e2);
+          }
+        }
+      }
+    }));
+
     // Sincronizar recordatorio primero
     const htmlContent = editorRef.current.innerHTML;
     let extractedClient = quote.clientName;
     const clientMatch = htmlContent.match(/Com\.\s*Prop\.\s*<strong>(.*?)<\/strong>/i);
+
     if (clientMatch && clientMatch[1]) {
       extractedClient = clientMatch[1].replace(/<[^>]+>/g, '').trim();
     }
@@ -1729,7 +1764,8 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Extract body sections from CONTENIDO / Section 1 onwards (strictly discarding any HTML cover page elements)
+      // Extract body sections: take EVERYTHING from the editor except the HTML cover page wrapper
+      // This ensures all transcription data, bird descriptions and photos are included
       const sectionsDiv = document.createElement('div');
 
       let rootContainer: HTMLElement = tempDiv;
@@ -1738,32 +1774,18 @@ ${cleanedBase64}`);
         rootContainer = innerWrapper;
       }
 
-      let bodyStarted = false;
       Array.from(rootContainer.children).forEach(child => {
         const el = child as HTMLElement;
-        const text = (el.textContent || '').trim().toUpperCase();
-
-        if (!bodyStarted) {
-          if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
-            bodyStarted = true;
-          }
-        }
-
-        if (bodyStarted) {
-          if (!el.classList.contains('cover-page-wrapper')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
+        // Skip only the HTML cover page visual wrapper — everything else goes in
+        if (!el.classList.contains('cover-page-wrapper')) {
+          sectionsDiv.appendChild(child.cloneNode(true));
         }
       });
 
-      // Fallback: If sectionsDiv is still empty, append all children except cover page
+      // If still empty (edge case), take everything
       if (sectionsDiv.childNodes.length === 0) {
-        Array.from(rootContainer.children).forEach(child => {
-          const el = child as HTMLElement;
-          const text = (el.textContent || '').toUpperCase();
-          if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
+        rootContainer.childNodes.forEach(child => {
+          sectionsDiv.appendChild(child.cloneNode(true));
         });
       }
 
@@ -1838,15 +1860,11 @@ ${cleanedBase64}`);
         relIds.push(parseInt(rMatch[1], 10));
       }
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
-
-      // Replace metadata placeholders in the template (such as Cover Page)
+      // Variable definitions for placeholder replacements
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
       let today = quoteDate ? new Date(quoteDate) : new Date();
       if (isNaN(today.getTime())) today = new Date();
-      const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-      ];
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
       const dayStr = today.getDate().toString().padStart(2, '0');
       const monthStr = monthNames[today.getMonth()];
       const yearStr = today.getFullYear().toString().substring(2);
@@ -1857,7 +1875,6 @@ ${cleanedBase64}`);
       } else if (cleanClientName.startsWith('COM. PROP.')) {
         cleanClientName = cleanClientName.replace(/^COM\. PROP\.\s*/i, '');
       }
-
       let cleanClientAddress = clientAddressInput.trim();
       if (/^C\/\s*/i.test(cleanClientAddress)) {
         cleanClientAddress = cleanClientAddress.replace(/^C\/\s*/i, '');
@@ -1865,23 +1882,32 @@ ${cleanedBase64}`);
         cleanClientAddress = cleanClientAddress.replace(/^Calle\s*/i, '');
       }
 
-      // Update cover page VML shape dimensions (_x0000_s1098) so it fits long client names & ref codes without clipping
-      const shapePosTag = docXml.indexOf('_x0000_s1098');
-      if (shapePosTag !== -1) {
-        const shapeTagPos = docXml.lastIndexOf('<v:shape', shapePosTag);
-        const shapeTagEnd = docXml.indexOf('>', shapeTagPos);
-        if (shapeTagPos !== -1 && shapeTagEnd !== -1) {
-          const oldTag = docXml.substring(shapeTagPos, shapeTagEnd + 1);
-          const newTag = oldTag
-            .replace(/height:[^;"]+/, 'height:160pt;mso-fit-shape-to-text:t')
-            .replace(/width:[^;"]+/, 'width:360pt');
-          docXml = docXml.replace(oldTag, newTag);
-        }
-      }
+      // Helper: apply all @@@@ placeholder replacements to any XML string
+      const applyPlaceholders = (xml: string): string => xml
+        .replace(/(?:Ref:|Ref-)(?:(?!<\/w:p>)[\s\S])*?(<w:t[^>]*>)@{8,11}(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
+        .replace(/Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?(<w:t[^>]*>)@{8}(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
+        .replace(/C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?(<w:t[^>]*>)@{8}(<\/w:t>)/gi, `$1${escapeXml(cleanClientAddress)}$2`)
+        .replace(/28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?(<w:t[^>]*>)@{4}(\s*Madrid<\/w:t>)/gi, `$1001$2`)
+        .replace(/D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?(<w:t[^>]*>)@{8}(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
+        .replace(/@{11}/g, escapeXml(finalRefCode))
+        .replace(/@{8}/g, escapeXml(cleanClientName))
+        .replace(/@{4}/g, '001')
+        .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
+        .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
+        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
+        .replace(/\[POSTAL_CODE\]/g, '28001')
+        .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
+        .replace(/\[DAY\]/g, escapeXml(dayStr))
+        .replace(/\[MONTH\]/g, escapeXml(monthStr))
+        .replace(/\[YEAR\]/g, escapeXml(yearStr))
+        .replace(/\[PLAGA\]/g, escapeXml(selectedBird))
+        .replace(/\[PRECIO_1\]/g, escapeXml(quote.price1 || price1))
+        .replace(/\[PRECIO_2\]/g, escapeXml(quote.price2 || price2))
+        .replace(/\[PRECIO_3\]/g, escapeXml(quote.price3 || price3));
 
+      // Apply placeholders to docXml (cover page VML in header is separate)
       docXml = docXml
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
-        // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
         .replace(/(Ref-(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
         .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
@@ -1891,7 +1917,6 @@ ${cleanedBase64}`);
         .replace(/@@@@@@@@@@@/g, escapeXml(finalRefCode))
         .replace(/@@@@@@@@/g, escapeXml(cleanClientName))
         .replace(/@@@@/g, '001')
-        // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
         .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
         .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
@@ -2086,90 +2111,37 @@ ${cleanedBase64}`);
           }
 
           if (tagName === 'img') {
-            let src = el.getAttribute('src') || '';
-            if (src.startsWith('blob:') || src.startsWith('http')) {
-              try {
-                const canvas = document.createElement('canvas');
-                const imgObj = el as HTMLImageElement;
-                canvas.width = imgObj.naturalWidth || 300;
-                canvas.height = imgObj.naturalHeight || 200;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                  ctx.drawImage(imgObj, 0, 0);
-                  src = canvas.toDataURL('image/jpeg');
-                }
-              } catch (e) {
-                console.warn('Could not convert image to dataUrl:', e);
-              }
-            }
-
+            const src = el.getAttribute('src') || '';
             if (src.startsWith('data:')) {
               const currentNum = nextRelIdNum++;
               const bRelId = `rId${currentNum}`;
               const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
               const ext = mime.includes('png') ? 'png' : 'jpeg';
-              const base64Part = src.split(',')[1] || src;
-              const cleaned = cleanBase64(base64Part);
-              
-              const bTargetPath = `media/visit_photo_${currentNum}.${ext}`;
+              const cleaned = cleanBase64(src.split(',')[1] || src);
+              const bTargetPath = `media/img_${currentNum}.${ext}`;
               zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
-              
               relsXml = relsXml.replace(
                 '</Relationships>',
                 `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
               );
-              
-              let pxWidth = 280;
-              const styleWidth = el.style.width || el.getAttribute('width') || '';
+
               const imgId = el.getAttribute('data-img-id') || '';
+              const isSignature = imgId.includes('sello') || imgId.includes('firma') || el.classList.contains('signature-image');
+              const isBirdImage = el.classList.contains('bird-image') || imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || el.closest('.des-plaga-block') !== null;
 
-              const isSignature = imgId.includes('sello') || imgId.includes('firma') || el.classList.contains('signature-image') || src.includes('sello') || src.includes('firma');
-              const isBirdImage = el.classList.contains('bird-image') || imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || src.includes('extracted_bird') || el.closest('.des-plaga-block') !== null;
-              const isUserAddedOrDrawn = imgId.startsWith('img_') || el.closest('.image-container-block') !== null;
+              let widthPt = 320;
+              if (isSignature) widthPt = 110;
+              else if (isBirdImage) widthPt = 255;
 
-              if (isSignature) {
-                pxWidth = 140;
-              } else if (isBirdImage) {
-                pxWidth = 340;
-              } else if (styleWidth && !styleWidth.includes('%')) {
-                const parsed = parseInt(styleWidth);
-                if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
-              } else if (isUserAddedOrDrawn) {
-                pxWidth = 420;
-              }
-              
-              let widthPt = pxWidth * 0.75;
-              if (isSignature) {
-                widthPt = 110;
-              } else if (isBirdImage) {
-                widthPt = 255;
-              } else if (widthPt > 450) {
-                widthPt = 450;
-              } else if (widthPt < 100) {
-                widthPt = 200;
-              }
-
-              let aspectRatio = 0.75;
               const imgEl = el as HTMLImageElement;
-              const naturalWidth = imgEl.naturalWidth;
-              const naturalHeight = imgEl.naturalHeight;
-              if (naturalWidth && naturalHeight && naturalWidth > 0) {
-                aspectRatio = naturalHeight / naturalWidth;
-              } else {
-                const attrHeight = el.getAttribute('height');
-                const attrWidth = el.getAttribute('width');
-                if (attrHeight && attrWidth) {
-                  const h = parseInt(attrHeight);
-                  const w = parseInt(attrWidth);
-                  if (w > 0 && h > 0) aspectRatio = h / w;
-                }
-              }
+              const naturalW = imgEl.naturalWidth;
+              const naturalH = imgEl.naturalHeight;
+              let aspectRatio = (naturalW && naturalH && naturalW > 0) ? naturalH / naturalW : 0.75;
               if (aspectRatio > 1.5) aspectRatio = 1.5;
               if (aspectRatio < 0.3) aspectRatio = 0.3;
 
               const heightPt = widthPt * aspectRatio;
-              
-              return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+              return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="120"/></w:pPr>${createDrawingMLXml(bRelId, widthPt, heightPt, 'Image')}</w:p>`;
             }
             return '';
           }
@@ -2222,68 +2194,46 @@ ${cleanedBase64}`);
 
       translatedXML = wrapLooseRunsInParagraphs(translatedXML);
 
-      // Clean, safe nested paragraph unwrapper that does NOT corrupt valid XML tags
-      let prevUnwrap;
-      do {
-        prevUnwrap = translatedXML;
-        translatedXML = translatedXML.replace(/<w:p\b[^>]*>(\s*<w:p\b[^>]*>[\s\S]*?<\/w:p>\s*)<\/w:p>/gi, '$1');
-      } while (translatedXML !== prevUnwrap);
-
-      // Deduplicate consecutive page breaks to eliminate blank pages in Word
-      translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
-
-      // 5. Clear Header 1 (Cover Page header) safely while preserving all native OpenXML namespace declarations
+      // 5. Apply @@@@placeholders to header1.xml (COVER PAGE LIVES HERE, not in document body)
       let header1Xml = zip.file('word/header1.xml')?.asText() || '';
       if (header1Xml) {
-        const hdrStart = header1Xml.indexOf('<w:hdr');
-        const hdrEnd = header1Xml.indexOf('>', hdrStart);
-        if (hdrStart !== -1 && hdrEnd !== -1) {
-          const rootHdrTag = header1Xml.substring(hdrStart, hdrEnd + 1);
-          header1Xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${rootHdrTag}<w:p/></w:hdr>`;
-          zip.file('word/header1.xml', header1Xml);
-        }
+        header1Xml = applyPlaceholders(header1Xml);
+        zip.file('word/header1.xml', header1Xml);
       }
 
-      // Preserved original corporate header2.xml without inserting vertical watermark shape
+      // Preserve original corporate header2.xml
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
         header2Xml = header2Xml.replace(/<v:shape[^>]*id="_x0000_s1163"[\s\S]*?<\/v:shape>/gi, '');
         zip.file('word/header2.xml', header2Xml);
       }
 
-      // If user added visit photos or drew on photos in the editor, inject them into the Foto Muestra placeholder in docXml
-      const userPhotoBlocks: string[] = [];
-      if (editorRef.current) {
-        const userImgs = editorRef.current.querySelectorAll('.image-container-block img, img.document-image');
-        userImgs.forEach((imgEl, idx) => {
-          let src = imgEl.getAttribute('src') || '';
-          if (src.startsWith('data:')) {
-            const currentNum = nextRelIdNum++;
-            const bRelId = `rId${currentNum}`;
-            const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
-            const ext = mime.includes('png') ? 'png' : 'jpeg';
-            const cleaned = cleanBase64(src.split(',')[1] || src);
-            const bTargetPath = `media/user_photo_${currentNum}.${ext}`;
-            zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
-            
-            relsXml = relsXml.replace(
-              '</Relationships>',
-              `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
-            );
+      // 6. Add page break before Presupuesto section
+      translatedXML = translatedXML.replace(
+        /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>)/i,
+        '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
+      );
 
-            userPhotoBlocks.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="180" w:after="180"/></w:pPr>${createDrawingMLXml(bRelId, 320, 240, 'Foto Visita ' + (idx + 1))}</w:p>`);
-          }
-        });
-      }
+      // 7. Assemble final document.xml:
+      //    - Opening tag from template (all namespaces) + <w:body>
+      //    - translatedXML (all content from editor: birds, images, presupuesto, etc.)
+      //    - sectPr from template (references header1.xml rId22 for cover page)
+      //    - Close </w:body></w:document>
+      const bodyTagEnd = docXml.indexOf('<w:body>') + 8;
+      const docXmlOpening = bodyTagEnd > 7 ? docXml.substring(0, bodyTagEnd) : 
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 w15 wp14"><w:body>';
 
-      if (userPhotoBlocks.length > 0) {
-        const photosXml = userPhotoBlocks.join('');
-        docXml = docXml.replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, photosXml);
-      }
+      const lastSectPrPos = docXml.lastIndexOf('<w:sectPr');
+      const lastSectPrEnd = lastSectPrPos !== -1 ? docXml.indexOf('</w:sectPr>', lastSectPrPos) : -1;
+      const sectPrXml = (lastSectPrPos !== -1 && lastSectPrEnd !== -1)
+        ? docXml.substring(lastSectPrPos, lastSectPrEnd + 11)
+        : '<w:sectPr><w:headerReference w:type="default" r:id="rId22"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
 
+      const finalDocXml = docXmlOpening + translatedXML + sectPrXml + '</w:body></w:document>';
 
-      zip.file('word/document.xml', docXml);
+      zip.file('word/document.xml', finalDocXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
+
 
       // 6. Generate DOCX file blob and download it
       const outBase64 = zip.generate({ type: 'base64' });
