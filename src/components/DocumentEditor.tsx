@@ -418,7 +418,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
-    if (quote.documentHtml && quote.documentHtml.length > 50) {
+    if (quote.documentHtml && quote.documentHtml.length > 50 && (quote.documentHtml.includes('CONTENIDO') || quote.documentHtml.includes('1.-') || quote.documentHtml.includes('CONTROL DE AVES'))) {
       let docHtml = quote.documentHtml
         .replace(/src="\$\{logoUrl\}"/g, `src="${logoUrl}"`)
         .replace(/src="undefined"/g, `src="${logoUrl}"`);
@@ -2095,17 +2095,6 @@ ${cleanedBase64}`);
       sectionsDiv.childNodes.forEach(child => {
         translatedXML += translateNodeToWordXML(child);
       });
-
-      // Guarantee customText (audio/video inspection transcription) is exported in Section 5/body
-      if (customText && customText.trim() && !translatedXML.toLowerCase().includes(customText.trim().substring(0, Math.min(30, customText.trim().length)).toLowerCase())) {
-        const customTextXml = `<w:p><w:pPr><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t>Notas de Inspección / Transcripción de Audio:</w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t xml:space="preserve">${escapeXml(customText)}</w:t></w:r></w:p>`;
-        
-        if (translatedXML.includes('6.-')) {
-          translatedXML = translatedXML.replace('<w:t>6.-', customTextXml + '<w:t>6.-');
-        } else {
-          translatedXML += customTextXml;
-        }
-      }
 
       // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
       const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
