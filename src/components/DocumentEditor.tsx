@@ -2115,13 +2115,27 @@ ${cleanedBase64}`);
       // 4. Translate sections HTML from Section 1 onwards (preserving hr.page-break)
       let translatedXML = '';
       sectionsDiv.childNodes.forEach(child => {
-        const xml = translateNodeToWordXML(child);
-        if (xml && !xml.trim().startsWith('<w:p') && !xml.trim().startsWith('<w:tbl')) {
-          translatedXML += `<w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>${xml}</w:p>`;
-        } else {
-          translatedXML += xml;
-        }
+        translatedXML += translateNodeToWordXML(child);
       });
+
+      // Wrap any loose runs or text outside <w:p> or <w:tbl> in <w:p>
+      const wrapLooseRunsInParagraphs = (xml: string): string => {
+        if (!xml.trim()) return '';
+        const tokenRegex = /(<w:p[^>]*>[\s\S]*?<\/w:p>|<w:tbl[^>]*>[\s\S]*?<\/w:tbl>)/gi;
+        const parts = xml.split(tokenRegex);
+        let result = '';
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          if (part.startsWith('<w:p') || part.startsWith('<w:tbl')) {
+            result += part;
+          } else if (part.trim()) {
+            result += `<w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>${part}</w:p>`;
+          }
+        }
+        return result;
+      };
+
+      translatedXML = wrapLooseRunsInParagraphs(translatedXML);
 
       // Sanitize nested <w:p> tags inside <w:p> recursively
       let prevLength = 0;
