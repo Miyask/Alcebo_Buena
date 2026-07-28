@@ -2251,39 +2251,51 @@ ${cleanedBase64}`);
         zip.file('word/header2.xml', header2Xml);
       }
 
-      // If user added visit photos or drew on photos in the editor, inject them into the Foto Muestra placeholder in docXml
-      const userPhotoBlocks: string[] = [];
-      if (editorRef.current) {
-        const userImgs = editorRef.current.querySelectorAll('.image-container-block img, img.document-image');
-        userImgs.forEach((imgEl, idx) => {
-          let src = imgEl.getAttribute('src') || '';
-          if (src.startsWith('data:')) {
-            const currentNum = nextRelIdNum++;
-            const bRelId = `rId${currentNum}`;
-            const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
-            const ext = mime.includes('png') ? 'png' : 'jpeg';
-            const cleaned = cleanBase64(src.split(',')[1] || src);
-            const bTargetPath = `media/user_photo_${currentNum}.${ext}`;
-            zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
-            
-            relsXml = relsXml.replace(
-              '</Relationships>',
-              `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
-            );
-
-            userPhotoBlocks.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="180" w:after="180"/></w:pPr>${createDrawingMLXml(bRelId, 320, 240, 'Foto Visita ' + (idx + 1))}</w:p>`);
+      // 6. Extract Cover page XML from template (up to paragraph enclosing shape _x0000_s1098)
+      let coverXml = '';
+      const shapePosCover = docXml.indexOf('_x0000_s1098');
+      if (shapePosCover !== -1) {
+        const shapeEndPos = docXml.indexOf('</v:shape>', shapePosCover);
+        if (shapeEndPos !== -1) {
+          const pEnd = docXml.indexOf('</w:p>', shapeEndPos);
+          if (pEnd !== -1) {
+            coverXml = docXml.substring(0, pEnd + 6);
           }
-        });
+        }
+      }
+      if (!coverXml) {
+        const firstSectPrPos = docXml.indexOf('<w:sectPr');
+        if (firstSectPrPos !== -1) {
+          const pEnd = docXml.indexOf('</w:p>', firstSectPrPos);
+          if (pEnd !== -1) coverXml = docXml.substring(0, pEnd + 6);
+        }
+      }
+      if (!coverXml) {
+        coverXml = docXml;
       }
 
-      if (userPhotoBlocks.length > 0) {
-        const photosXml = userPhotoBlocks.join('');
-        docXml = docXml.replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, photosXml);
-      }
+      // Remove footer reference from coverXml so Page 1 (Portada) has NO page number in footer
+      coverXml = coverXml.replace(/<w:footerReference[^>]*\/>/g, '');
 
+      // 7. Extract final section properties for pages 2+ from the template
+      const lastSectPrPos = docXml.lastIndexOf('<w:sectPr');
+      const lastSectPrEnd = lastSectPrPos !== -1 ? docXml.indexOf('</w:sectPr>', lastSectPrPos) : -1;
+      const sectPr2Xml = (lastSectPrPos !== -1 && lastSectPrEnd !== -1)
+        ? docXml.substring(lastSectPrPos, lastSectPrEnd + 11)
+        : '<w:sectPr><w:headerReference w:type="default" r:id="rId15"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
 
-      zip.file('word/document.xml', docXml);
+      // Ensure a page break exists before Presupuesto section in translatedXML
+      translatedXML = translatedXML.replace(
+        /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>)/i,
+        '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
+      );
+
+      // 8. Assemble complete document XML: Cover page + Live dynamic editor content (transcript, birds, images, budget) + Section properties
+      const finalDocXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
+
+      zip.file('word/document.xml', finalDocXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
+
 
       // 6. Generate DOCX file blob and download it
       const outBase64 = zip.generate({ type: 'base64' });
