@@ -1966,6 +1966,7 @@ ${cleanedBase64}`);
               li.childNodes.forEach(c => {
                 liChildXml += translateNodeToWordXML(c);
               });
+              const cleanLiChild = liChildXml.replace(/<\/?w:p[^>]*>/gi, '');
               listXml += `<w:p>
                 <w:pPr>
                   <w:pStyle w:val="ListParagraph"/>
@@ -1977,7 +1978,7 @@ ${cleanedBase64}`);
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
-                ${liChildXml}
+                ${cleanLiChild}
               </w:p>`;
             });
             return listXml;
@@ -2122,8 +2123,13 @@ ${cleanedBase64}`);
         }
       });
 
-      // Sanitize nested <w:p> tags inside <w:p>
-      translatedXML = translatedXML.replace(/<w:p[^>]*>\s*(<w:p[^>]*>[\s\S]*?<\/w:p>)\s*<\/w:p>/gi, '$1');
+      // Sanitize nested <w:p> tags inside <w:p> recursively
+      let prevLength = 0;
+      while (translatedXML.length !== prevLength) {
+        prevLength = translatedXML.length;
+        translatedXML = translatedXML.replace(/<w:p[^>]*>\s*(<w:p[^>]*>[\s\S]*?<\/w:p>)\s*<\/w:p>/gi, '$1');
+        translatedXML = translatedXML.replace(/(<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?)<w:p[^>]*>([\s\S]*?)<\/w:p>/gi, '$1$2');
+      }
 
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
