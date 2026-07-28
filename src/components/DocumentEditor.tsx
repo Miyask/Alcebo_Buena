@@ -1890,7 +1890,7 @@ ${cleanedBase64}`);
             // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon
             const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow;
             const applyBold = !isBodyParagraph;
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
@@ -1900,9 +1900,7 @@ ${cleanedBase64}`);
           }
           if (tagName === 'span' || tagName === 'mark') {
             const hasBold = el.style.fontWeight === 'bold' || el.classList.contains('font-bold');
-            const bg = el.style.backgroundColor || '';
-            const isYellow = tagName === 'mark' || bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'br') {
             return '<w:r><w:br/></w:r>';
