@@ -2239,44 +2239,35 @@ ${cleanedBase64}`);
         zip.file('word/header2.xml', header2Xml);
       }
 
-      // Extract Cover page up to paragraph P13 containing the client details box
-      let coverXml = '';
-      const shapePosCover = docXml.indexOf('_x0000_s1098');
-      if (shapePosCover !== -1) {
-        const shapeEndPos = docXml.indexOf('</v:shape>', shapePosCover);
-        if (shapeEndPos !== -1) {
-          const p13End = docXml.indexOf('</w:p>', shapeEndPos) + 6;
-          coverXml = docXml.substring(0, p13End);
-        }
+      // If user added visit photos or drew on photos in the editor, inject them into the Foto Muestra placeholder in docXml
+      const userPhotoBlocks: string[] = [];
+      if (editorRef.current) {
+        const userImgs = editorRef.current.querySelectorAll('.image-container-block img, img.document-image');
+        userImgs.forEach((imgEl, idx) => {
+          let src = imgEl.getAttribute('src') || '';
+          if (src.startsWith('data:')) {
+            const currentNum = nextRelIdNum++;
+            const bRelId = `rId${currentNum}`;
+            const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
+            const ext = mime.includes('png') ? 'png' : 'jpeg';
+            const cleaned = cleanBase64(src.split(',')[1] || src);
+            const bTargetPath = `media/user_photo_${currentNum}.${ext}`;
+            zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
+            
+            relsXml = relsXml.replace(
+              '</Relationships>',
+              `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
+            );
+
+            userPhotoBlocks.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="180" w:after="180"/></w:pPr>${createDrawingMLXml(bRelId, 320, 240, 'Foto Visita ' + (idx + 1))}</w:p>`);
+          }
+        });
       }
 
-      if (!coverXml) {
-        // Fallback to searching for CONTENIDO or 1.-
-        const contenidoPos = docXml.indexOf('CONTENIDO');
-        const sec1Pos = docXml.indexOf('1.-');
-        const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
-        let cutIndex = -1;
-        if (targetPos !== -1) {
-          const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
-          cutIndex = prevCloseP !== -1 ? prevCloseP + 6 : docXml.lastIndexOf('<w:p', targetPos);
-        }
-        if (cutIndex === -1) {
-          throw new Error('No se encontró la frontera del contenido en la plantilla base.');
-        }
-        coverXml = docXml.substring(0, cutIndex);
+      if (userPhotoBlocks.length > 0) {
+        const photosXml = userPhotoBlocks.join('');
+        docXml = docXml.replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, photosXml);
       }
-
-      // Remove footer reference from coverXml so Page 1 (Portada) has NO page number in footer
-      coverXml = coverXml.replace(/<w:footerReference[^>]*\/>/g, '');
-
-      // Extract native body sectPr #2 for Sections 2+ from the end of the template
-      const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
-      const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
-      const sectPr2Xml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
-        ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
-        : '';
-
-      docXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
 
       // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
       if (IMAGE_RED_BASE64) {
