@@ -162,7 +162,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
             try {
               const fileBlob = await (await fetch(base64Uri)).blob();
               const formData = new FormData();
-              formData.append('file', fileBlob, file.name);
+              formData.append('file', fileBlob, 'audio.wav');
               formData.append('model', 'whisper-large-v3');
               formData.append('language', 'es');
 

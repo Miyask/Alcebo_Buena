@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const buffer = Buffer.from(base64Data, 'base64');
       const blob = new Blob([buffer], { type: mimeType });
       const formData = new FormData();
-      formData.append('file', blob, name || 'audio.wav');
+      formData.append('file', blob, 'audio.wav');
       formData.append('model', 'whisper-large-v3');
       formData.append('language', 'es');
 
