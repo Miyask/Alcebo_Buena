@@ -1675,31 +1675,35 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards (strictly discarding any HTML cover page elements)
-      tempDiv.querySelectorAll('.cover-page-wrapper').forEach(el => el.remove());
-
+      // Extract body sections from CONTENIDO / Section 1 onwards (strictly discarding any HTML cover page elements)
       const sectionsDiv = document.createElement('div');
-      const allElements = Array.from(tempDiv.querySelectorAll('*'));
-      const startEl = allElements.find(el => {
-        if (el.closest('.cover-page-wrapper')) return false;
-        if (el.children.length > 0 && Array.from(el.children).some(c => c.textContent?.toUpperCase().includes('CONTENIDO'))) {
-          return false;
-        }
-        const text = (el.textContent || '').trim().toUpperCase();
-        return text === 'CONTENIDO' || text.startsWith('1.-') || text.startsWith('1. -');
-      });
 
-      if (startEl) {
-        let current: Element | null = startEl;
-        while (current) {
-          sectionsDiv.appendChild(current.cloneNode(true));
-          current = current.nextElementSibling;
-        }
+      let rootContainer: HTMLElement = tempDiv;
+      if (tempDiv.children.length === 1 && tempDiv.firstElementChild?.classList.contains('Section1')) {
+        rootContainer = tempDiv.firstElementChild as HTMLElement;
       }
 
-      // Fallback: If sectionsDiv is empty, append all children except cover page
+      let bodyStarted = false;
+      Array.from(rootContainer.children).forEach(child => {
+        const el = child as HTMLElement;
+        const text = (el.textContent || '').trim().toUpperCase();
+
+        if (!bodyStarted) {
+          if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
+            bodyStarted = true;
+          }
+        }
+
+        if (bodyStarted) {
+          if (!el.classList.contains('cover-page-wrapper') && !el.querySelector('.cover-page-wrapper')) {
+            sectionsDiv.appendChild(child.cloneNode(true));
+          }
+        }
+      });
+
+      // Fallback: If sectionsDiv is still empty, append all children except cover page
       if (sectionsDiv.childNodes.length === 0) {
-        Array.from(tempDiv.children).forEach(child => {
+        Array.from(rootContainer.children).forEach(child => {
           const el = child as HTMLElement;
           const text = (el.textContent || '').toUpperCase();
           if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
