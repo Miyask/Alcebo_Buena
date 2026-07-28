@@ -205,7 +205,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           html += `<div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; margin-bottom: 14px; justify-content: center;">`;
           bird.images.forEach((img) => {
             html += `<div style="text-align: center; background: #ffffff; padding: 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #cbd5e1;">`;
-            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 320px; max-height: 220px; border-radius: 6px; object-fit: cover; display: block;" />`;
+            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" class="bird-image" data-img-id="img_bird_${bird.key}" style="width: 340px; max-width: 340px; max-height: 240px; border-radius: 6px; object-fit: cover; display: block;" />`;
             html += `</div>`;
           });
           html += `</div>`;
@@ -1911,9 +1911,32 @@ ${cleanedBase64}`);
   </w:tr>
 </w:tbl>`;
 
+      const shapePos = docXml.indexOf('_x0000_s1098');
+      if (shapePos !== -1) {
+        let pStart = docXml.lastIndexOf('<w:p', shapePos);
+        while (true) {
+          const beforeStr = docXml.substring(0, pStart);
+          const txbxPos = beforeStr.lastIndexOf('<w:txbxContent>');
+          const txbxEnd = beforeStr.lastIndexOf('</w:txbxContent>');
+          if (txbxPos !== -1 && txbxPos > txbxEnd) {
+            pStart = docXml.lastIndexOf('<w:p', txbxPos - 1);
+          } else {
+            break;
+          }
+        }
+        
+        let pEnd = docXml.indexOf('</w:p>', shapePos);
+        const shapeEnd = docXml.indexOf('</v:shape>', shapePos);
+        if (shapeEnd !== -1) {
+          pEnd = docXml.indexOf('</w:p>', shapeEnd) + 6;
+        }
+        
+        if (pStart !== -1 && pEnd > pStart) {
+          docXml = docXml.substring(0, pStart) + nativeTableXml + docXml.substring(pEnd);
+        }
+      }
+
       docXml = docXml
-        .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?<v:shape[^>]*id="_x0000_s1098"[\s\S]*?<\/v:shape>(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, nativeTableXml)
-        .replace(/(id="_x0000_s1098"[^>]*style="[^"]*height:)[^;"]+/gi, '$1180pt')
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
@@ -2154,23 +2177,25 @@ ${cleanedBase64}`);
               const imgId = el.getAttribute('data-img-id') || '';
 
               const isSignature = imgId.includes('sello') || imgId.includes('firma') || el.classList.contains('signature-image') || src.includes('sello') || src.includes('firma');
-              const isBirdImage = imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || src.includes('extracted_bird');
+              const isBirdImage = el.classList.contains('bird-image') || imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || src.includes('extracted_bird') || el.closest('.des-plaga-block') !== null;
               const isUserAddedOrDrawn = imgId.startsWith('img_') || el.closest('.image-container-block') !== null;
 
               if (isSignature) {
                 pxWidth = 140;
               } else if (isBirdImage) {
-                pxWidth = 260;
+                pxWidth = 340;
               } else if (styleWidth && !styleWidth.includes('%')) {
                 const parsed = parseInt(styleWidth);
                 if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
               } else if (isUserAddedOrDrawn) {
-                pxWidth = 400;
+                pxWidth = 420;
               }
               
               let widthPt = pxWidth * 0.75;
               if (isSignature) {
                 widthPt = 110;
+              } else if (isBirdImage) {
+                widthPt = 255;
               } else if (widthPt > 450) {
                 widthPt = 450;
               } else if (widthPt < 100) {
@@ -2273,9 +2298,9 @@ ${cleanedBase64}`);
 
       // Extract Cover page up to paragraph P13 containing the client details box
       let coverXml = '';
-      const shapePos = docXml.indexOf('_x0000_s1098');
-      if (shapePos !== -1) {
-        const shapeEndPos = docXml.indexOf('</v:shape>', shapePos);
+      const shapePosCover = docXml.indexOf('_x0000_s1098');
+      if (shapePosCover !== -1) {
+        const shapeEndPos = docXml.indexOf('</v:shape>', shapePosCover);
         if (shapeEndPos !== -1) {
           const p13End = docXml.indexOf('</w:p>', shapeEndPos) + 6;
           coverXml = docXml.substring(0, p13End);
