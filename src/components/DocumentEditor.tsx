@@ -1706,8 +1706,9 @@ ${cleanedBase64}`);
       const sectionsDiv = document.createElement('div');
 
       let rootContainer: HTMLElement = tempDiv;
-      if (tempDiv.children.length === 1 && tempDiv.firstElementChild?.classList.contains('Section1')) {
-        rootContainer = tempDiv.firstElementChild as HTMLElement;
+      const innerWrapper = tempDiv.querySelector('.word-docx-high-fidelity, .Section1') as HTMLElement;
+      if (innerWrapper) {
+        rootContainer = innerWrapper;
       }
 
       let bodyStarted = false;
@@ -1722,7 +1723,7 @@ ${cleanedBase64}`);
         }
 
         if (bodyStarted) {
-          if (!el.classList.contains('cover-page-wrapper') && !el.querySelector('.cover-page-wrapper')) {
+          if (!el.classList.contains('cover-page-wrapper')) {
             sectionsDiv.appendChild(child.cloneNode(true));
           }
         }
