@@ -272,6 +272,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       });
 
       setEditorHtml(editorRef.current.innerHTML);
+      setSaveStatus('dirty');
     }
   }, [selectedBirds, selectedSystems]);
 
@@ -587,8 +588,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
         .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
-        .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml(selectedBirds))
-        .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, getSystemsHtml(selectedSystems))
+        .replace(/\[DESCRIPCION_PLAGA\]/g, `<div class="des-plaga-block">${getBirdsHtml(selectedBirds)}</div>`)
+        .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, `<div class="sistemas-block">${getSystemsHtml(selectedSystems)}</div>`)
         .replace(/<p><strong>presupuesto<\/strong><\/p>[\s\S]*?<p><strong>CONTENIDO<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
           <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
             <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
