@@ -1667,14 +1667,6 @@ ${cleanedBase64}`);
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
-      
-      // Inject native vertical right-margin VML watermark shape into header2.xml so "presupuesto" appears vertically on the right margin of ALL pages 2+
-      let header2Xml = zip.file('word/header2.xml')?.asText() || '';
-      if (header2Xml && !header2Xml.includes('watermark_presupuesto_vertical_right')) {
-        const verticalRightVmlWatermark = `<w:p><w:pPr><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:noProof/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:pict><v:shape id="watermark_presupuesto_vertical_right" type="#_x0000_t202" style="position:absolute;left:0;text-align:left;margin-left:424.15pt;margin-top:10.55pt;width:126pt;height:397.75pt;z-index:251658752" filled="f" stroked="f"><v:textbox style="layout-flow:vertical;mso-layout-flow-alt:bottom-to-top;mso-next-textbox:#watermark_presupuesto_vertical_right"><w:txbxContent><w:p><w:pPr><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr><w:t>presupuesto</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape></w:pict></w:r></w:p>`;
-        header2Xml = header2Xml.replace('</w:hdr>', verticalRightVmlWatermark + '</w:hdr>');
-        zip.file('word/header2.xml', header2Xml);
-      }
 
       // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
       // We do this first so character indices computed later are correct.
@@ -1765,12 +1757,12 @@ ${cleanedBase64}`);
 
       docXml = docXml
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
-        // Replace native template @@@@ placeholders
-        .replace(/(Ref:[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
-        .replace(/(Com\.\s*Prop\.\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
-        .replace(/(C\/\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
-        .replace(/(28<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
-        .replace(/(D\.\s*<\/w:t>[\s\S]*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
+        // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
+        .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
+        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
+        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
+        .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
+        .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
         // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
         .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
@@ -1787,13 +1779,6 @@ ${cleanedBase64}`);
         .replace(/\[PRECIO_3\]/g, escapeXml(quote.price3 || price3))
         .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
         .replace(/\[TELEFONO\]/g, '900 123 456');
-
-      if (!docXml.substring(0, docXml.indexOf('sectPr')).includes('Presidente')) {
-        docXml = docXml.replace(
-          '28001  Madrid',
-          `28001  Madrid</w:t></w:r></w:p><w:p><w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>Att: D. Presidente / Administrador de Fincas`
-        );
-      }
 
       // 3. Local variables and drawing XML generator
       let drawingIdCounter = 1000;
@@ -2050,17 +2035,29 @@ ${cleanedBase64}`);
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
       zip.file('word/header1.xml', emptyHeader1);
 
-      // Extract native coverXml (Page 1) terminating at native sectPr #1 inside P13
-      const sectPr1Match = docXml.match(/<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*?<w:sectPr[\s\S]*?<\/w:sectPr>(?:(?!<\/w:pPr>)[\s\S])*?<\/w:pPr>/);
+      // Inject vertical watermark shape inside the existing textbox w:pict element in header2.xml
+      let header2Xml = zip.file('word/header2.xml')?.asText() || '';
+      const verticalWatermarkShape = `<v:shape id="_x0000_s1163" type="#_x0000_t202" style="position:absolute;left:0;text-align:left;margin-left:421.25pt;margin-top:114.85pt;width:126pt;height:397.75pt;z-index:251652608" filled="f" stroked="f"><v:textbox style="layout-flow:vertical;mso-layout-flow-alt:bottom-to-top;mso-next-textbox:#_x0000_s1163"><w:txbxContent><w:p w:rsidR="00F51028" w:rsidRPr="002D561F" w:rsidRDefault="00F51028" w:rsidP="0053151D"><w:pPr><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="DDDDDD"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr></w:pPr><w:r w:rsidRPr="002D561F"><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr><w:t>presupuesto</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape>`;
 
+      const firstPictEnd = header2Xml.indexOf('</w:pict>');
+      if (firstPictEnd !== -1 && !header2Xml.includes('_x0000_s1163')) {
+        header2Xml = header2Xml.substring(0, firstPictEnd) + verticalWatermarkShape + header2Xml.substring(firstPictEnd);
+        zip.file('word/header2.xml', header2Xml);
+      }
+
+      // Extract Cover page up to paragraph P13 containing the client details box
       let coverXml = '';
-      if (sectPr1Match) {
-        const coverEndIndex = docXml.indexOf(sectPr1Match[0]) + sectPr1Match[0].length;
-        coverXml = docXml.substring(0, coverEndIndex);
-        if (!coverXml.trim().endsWith('</w:p>')) {
-          coverXml += '</w:p>';
+      const shapePos = docXml.indexOf('_x0000_s1098');
+      if (shapePos !== -1) {
+        const shapeEndPos = docXml.indexOf('</v:shape>', shapePos);
+        if (shapeEndPos !== -1) {
+          const p13End = docXml.indexOf('</w:p>', shapeEndPos) + 6;
+          coverXml = docXml.substring(0, p13End);
         }
-      } else {
+      }
+
+      if (!coverXml) {
+        // Fallback to searching for CONTENIDO or 1.-
         const contenidoPos = docXml.indexOf('CONTENIDO');
         const sec1Pos = docXml.indexOf('1.-');
         const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
