@@ -28,9 +28,12 @@ export const extractAudioFromMediaFile = async (
 
     if (onProgress) onProgress(60);
 
+    const channelData = audioBuffer.getChannelData(0); // Take first channel (mono)
+    const numSamples = channelData.length;
+
     // Target maximum samples to ensure WAV blob stays under 2.5 MB (Base64 < 3.4 MB, below Vercel 4.5 MB limit)
     const MAX_ALLOWED_SAMPLES = 1250000;
-    const step = Math.ceil(numSamples / MAX_ALLOWED_SAMPLES);
+    const step = Math.max(1, Math.ceil(numSamples / MAX_ALLOWED_SAMPLES));
     const targetSampleRate = Math.round(16000 / step);
     const outputSamples = Math.floor(numSamples / step);
 
