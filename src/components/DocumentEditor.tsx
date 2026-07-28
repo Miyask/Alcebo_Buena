@@ -2045,13 +2045,14 @@ ${cleanedBase64}`);
           if (tagName === 'img') {
             const src = el.getAttribute('src') || '';
             if (src.startsWith('data:')) {
-              const bRelId = `rId${nextRelIdNum++}`;
+              const currentNum = nextRelIdNum++;
+              const bRelId = `rId${currentNum}`;
               const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
               const ext = mime.includes('png') ? 'png' : 'jpeg';
               const base64Part = src.split(',')[1] || src;
               const cleaned = cleanBase64(base64Part);
               
-              const bTargetPath = `media/visit_photo_${nextRelIdNum}.${ext}`;
+              const bTargetPath = `media/visit_photo_${currentNum}.${ext}`;
               zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
               
               relsXml = relsXml.replace(
