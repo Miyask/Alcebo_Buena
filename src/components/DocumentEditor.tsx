@@ -263,6 +263,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const z2 = priSys === 'Red' ? 'Huecos de ventilación del ático' : 'Zonas comunes y repisas de ventanas';
       const z3 = priSys === 'Varillas' ? 'Cornisa superior trasera' : 'Zonas estructurales secundarias';
       
+      const sistemasNombresEl = editorRef.current.querySelector('.sistemas-nombres-field');
+      if (sistemasNombresEl) {
+        const sysNamesMap: Record<string, string> = {
+          'Red': 'Red Network anti-palomas',
+          'Varillas': 'Varillas Avipoint',
+          'Eléctrico': 'Sistema Electroestático Disuasorio',
+          'Capturas': 'Plan de Capturas Selectivas'
+        };
+        sistemasNombresEl.textContent = selectedSystems.map(s => sysNamesMap[s] || s).join(', ');
+      }
+
       editorRef.current.querySelectorAll('.zona-1-field').forEach(el => { el.textContent = z1; });
       editorRef.current.querySelectorAll('.zona-2-field').forEach(el => { el.textContent = z2; });
       editorRef.current.querySelectorAll('.zona-3-field').forEach(el => { el.textContent = z3; });
@@ -588,6 +599,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
         .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
+        .replace(/Se propone la protección mediante sistema de Red Network anti-palomas/gi, `Se propone la protección mediante <mark class="sistemas-nombres-field" style="background-color: #fef08a; padding: 1px 3px; border-radius: 2px;">Red Network anti-palomas</mark>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, `<div class="des-plaga-block">${getBirdsHtml(selectedBirds)}</div>`)
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, `<div class="sistemas-block">${getSystemsHtml(selectedSystems)}</div>`)
         .replace(/<p><strong>presupuesto<\/strong><\/p>[\s\S]*?<p><strong>CONTENIDO<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
@@ -1874,7 +1886,11 @@ ${cleanedBase64}`);
           if (tagName === 'strong' || tagName === 'b') {
             const bg = el.style.backgroundColor || '';
             const isYellow = bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/>${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
+            const txt = (el.textContent || '').trim();
+            // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon
+            const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow;
+            const applyBold = !isBodyParagraph;
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
