@@ -1851,18 +1851,33 @@ ${cleanedBase64}`);
       const monthStr = monthNames[today.getMonth()];
       const yearStr = today.getFullYear().toString().substring(2);
 
+      let cleanClientName = clientNameInput.trim().toUpperCase();
+      if (cleanClientName.startsWith('COMUNIDAD DE PROPIETARIOS')) {
+        cleanClientName = cleanClientName.replace(/^COMUNIDAD DE PROPIETARIOS\s*/i, '');
+      } else if (cleanClientName.startsWith('COM. PROP.')) {
+        cleanClientName = cleanClientName.replace(/^COM\. PROP\.\s*/i, '');
+      }
+
+      let cleanClientAddress = clientAddressInput.trim();
+      if (/^C\/\s*/i.test(cleanClientAddress)) {
+        cleanClientAddress = cleanClientAddress.replace(/^C\/\s*/i, '');
+      } else if (/^Calle\s*/i.test(cleanClientAddress)) {
+        cleanClientAddress = cleanClientAddress.replace(/^Calle\s*/i, '');
+      }
+
       docXml = docXml
+        .replace(/(id="_x0000_s1098"[^>]*style="[^"]*height:)[^;"]+/gi, '$1180pt')
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
-        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
-        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
+        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
+        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientAddress)}$2`)
         .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
         .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
         // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
-        .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
-        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(clientAddressInput))
+        .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
+        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
         .replace(/\[POSTAL_CODE\]/g, '28001')
         .replace(/\[POSTAL_CODE_PREFIX\]/g, '280')
         .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
@@ -2054,7 +2069,23 @@ ${cleanedBase64}`);
           }
 
           if (tagName === 'img') {
-            const src = el.getAttribute('src') || '';
+            let src = el.getAttribute('src') || '';
+            if (src.startsWith('blob:') || src.startsWith('http')) {
+              try {
+                const canvas = document.createElement('canvas');
+                const imgObj = el as HTMLImageElement;
+                canvas.width = imgObj.naturalWidth || 300;
+                canvas.height = imgObj.naturalHeight || 200;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(imgObj, 0, 0);
+                  src = canvas.toDataURL('image/jpeg');
+                }
+              } catch (e) {
+                console.warn('Could not convert image to dataUrl:', e);
+              }
+            }
+
             if (src.startsWith('data:')) {
               const currentNum = nextRelIdNum++;
               const bRelId = `rId${currentNum}`;
@@ -2073,16 +2104,20 @@ ${cleanedBase64}`);
               
               let pxWidth = 280;
               const styleWidth = el.style.width || el.getAttribute('width') || '';
-              if (styleWidth && !styleWidth.includes('%')) {
+              const isSignature = (el.getAttribute('data-img-id')?.includes('sello') || el.classList.contains('signature-image') || (src.length > 100000 && !styleWidth));
+              if (isSignature) {
+                pxWidth = 140;
+              } else if (styleWidth && !styleWidth.includes('%')) {
                 const parsed = parseInt(styleWidth);
                 if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
               }
               
               let widthPt = pxWidth * 0.75;
-              if (widthPt > 320) {
+              if (isSignature) {
+                widthPt = 120;
+              } else if (widthPt > 320) {
                 widthPt = 320;
-              }
-              if (widthPt < 80) {
+              } else if (widthPt < 80) {
                 widthPt = 240;
               }
 
