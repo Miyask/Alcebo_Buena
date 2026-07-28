@@ -1634,31 +1634,31 @@ ${cleanedBase64}`);
       });
 
       // Filter children to keep all body sections from CONTENIDO / Section 1 onwards (ignoring duplicate Cover Page elements)
-      let foundSec1 = false;
       const sectionsDiv = document.createElement('div');
       
-      Array.from(tempDiv.children).forEach(child => {
-        const el = child as HTMLElement;
-        if (el.classList.contains('cover-page-wrapper')) return;
-        const text = (el.textContent || '').toUpperCase();
-        if (!foundSec1) {
-          if (text.includes('1.-') || text.includes('1. -') || text.includes('CONTROL DE AVES') || text.includes('CONTENIDO')) {
-            foundSec1 = true;
-          }
+      const allElements = Array.from(tempDiv.querySelectorAll('*'));
+      const startEl = allElements.find(el => {
+        if (el.children.length > 0 && Array.from(el.children).some(c => c.textContent?.toUpperCase().includes('CONTENIDO'))) {
+          return false;
         }
-        if (foundSec1) {
-          // Extra safety: do not append duplicate cover logo or duplicate client details block
-          if (!el.querySelector('img[src*="logo"]') && !text.includes('INFORME TÉCNICO') && !text.includes('PRESUPUESTO PARA')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
-        }
+        const text = (el.textContent || '').trim().toUpperCase();
+        return text === 'CONTENIDO' || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES');
       });
+
+      if (startEl) {
+        let current: Element | null = startEl;
+        while (current) {
+          sectionsDiv.appendChild(current.cloneNode(true));
+          current = current.nextElementSibling;
+        }
+      }
 
       // Fallback: If sectionsDiv is empty, append all children except cover page
       if (sectionsDiv.childNodes.length === 0) {
         Array.from(tempDiv.children).forEach(child => {
           const el = child as HTMLElement;
-          if (!el.classList.contains('cover-page-wrapper')) {
+          const text = (el.textContent || '').toUpperCase();
+          if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
             sectionsDiv.appendChild(child.cloneNode(true));
           }
         });
