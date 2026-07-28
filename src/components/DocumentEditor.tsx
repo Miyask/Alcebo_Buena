@@ -1738,13 +1738,34 @@ ${cleanedBase64}`);
         rootContainer = innerWrapper;
       }
 
+      let bodyStarted = false;
       Array.from(rootContainer.children).forEach(child => {
         const el = child as HTMLElement;
-        const text = (el.textContent || '').toUpperCase();
-        if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
-          sectionsDiv.appendChild(child.cloneNode(true));
+        const text = (el.textContent || '').trim().toUpperCase();
+
+        if (!bodyStarted) {
+          if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
+            bodyStarted = true;
+          }
+        }
+
+        if (bodyStarted) {
+          if (!el.classList.contains('cover-page-wrapper')) {
+            sectionsDiv.appendChild(child.cloneNode(true));
+          }
         }
       });
+
+      // Fallback: If sectionsDiv is still empty, append all children except cover page
+      if (sectionsDiv.childNodes.length === 0) {
+        Array.from(rootContainer.children).forEach(child => {
+          const el = child as HTMLElement;
+          const text = (el.textContent || '').toUpperCase();
+          if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
+            sectionsDiv.appendChild(child.cloneNode(true));
+          }
+        });
+      }
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
@@ -1862,14 +1883,10 @@ ${cleanedBase64}`);
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
-        .replace(/(Ref-(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
         .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
         .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientAddress)}$2`)
         .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
         .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
-        .replace(/@@@@@@@@@@@/g, escapeXml(finalRefCode))
-        .replace(/@@@@@@@@/g, escapeXml(cleanClientName))
-        .replace(/@@@@/g, '001')
         // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
         .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
@@ -1932,7 +1949,7 @@ ${cleanedBase64}`);
           
           if (tagName === 'p') {
             const img = el.querySelector('img');
-            if (img && !(el.textContent || '').trim()) {
+            if (img) {
               return translateNodeToWordXML(img);
             }
             
@@ -2146,8 +2163,9 @@ ${cleanedBase64}`);
               if (aspectRatio > 1.5) aspectRatio = 1.5;
               if (aspectRatio < 0.3) aspectRatio = 0.3;
 
-              const drawingXml = createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
-              return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="140"/></w:pPr>${drawingXml}</w:p>`;
+              const heightPt = widthPt * aspectRatio;
+              
+              return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
             }
             return '';
           }
@@ -2210,68 +2228,70 @@ ${cleanedBase64}`);
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
 
-      // 5. Apply placeholders to header1.xml (preserves corporate header logo & vertical rotated 'presupuesto' watermark shape)
-      let header1Xml = zip.file('word/header1.xml')?.asText() || '';
-      if (header1Xml) {
-        header1Xml = applyPlaceholders(header1Xml);
-        zip.file('word/header1.xml', header1Xml);
-      }
+      // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
+      const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
+      zip.file('word/header1.xml', emptyHeader1);
 
-      // Preserve original corporate header2.xml if present
+      // Preserved original corporate header2.xml without inserting vertical watermark shape
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
-        header2Xml = applyPlaceholders(header2Xml);
         zip.file('word/header2.xml', header2Xml);
       }
 
-      // 6. Extract Cover page XML from template (up to paragraph enclosing shape _x0000_s1098)
+      // Extract Cover page up to paragraph P13 containing the client details box
       let coverXml = '';
       const shapePosCover = docXml.indexOf('_x0000_s1098');
       if (shapePosCover !== -1) {
         const shapeEndPos = docXml.indexOf('</v:shape>', shapePosCover);
         if (shapeEndPos !== -1) {
-          const pEnd = docXml.indexOf('</w:p>', shapeEndPos);
-          if (pEnd !== -1) {
-            coverXml = docXml.substring(0, pEnd + 6);
-          }
+          const p13End = docXml.indexOf('</w:p>', shapeEndPos) + 6;
+          coverXml = docXml.substring(0, p13End);
         }
-      }
-      if (!coverXml) {
-        const firstSectPrPos = docXml.indexOf('<w:sectPr');
-        if (firstSectPrPos !== -1) {
-          const pEnd = docXml.indexOf('</w:p>', firstSectPrPos);
-          if (pEnd !== -1) coverXml = docXml.substring(0, pEnd + 6);
-        }
-      }
-      if (!coverXml) {
-        coverXml = docXml;
       }
 
-      // Apply placeholders to coverXml
-      coverXml = applyPlaceholders(coverXml);
+      if (!coverXml) {
+        // Fallback to searching for CONTENIDO or 1.-
+        const contenidoPos = docXml.indexOf('CONTENIDO');
+        const sec1Pos = docXml.indexOf('1.-');
+        const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
+        let cutIndex = -1;
+        if (targetPos !== -1) {
+          const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
+          cutIndex = prevCloseP !== -1 ? prevCloseP + 6 : docXml.lastIndexOf('<w:p', targetPos);
+        }
+        if (cutIndex === -1) {
+          throw new Error('No se encontró la frontera del contenido en la plantilla base.');
+        }
+        coverXml = docXml.substring(0, cutIndex);
+      }
 
       // Remove footer reference from coverXml so Page 1 (Portada) has NO page number in footer
       coverXml = coverXml.replace(/<w:footerReference[^>]*\/>/g, '');
 
-      // 7. Extract final section properties for pages 2+ from the template
-      const lastSectPrPos = docXml.lastIndexOf('<w:sectPr');
-      const lastSectPrEnd = lastSectPrPos !== -1 ? docXml.indexOf('</w:sectPr>', lastSectPrPos) : -1;
-      const sectPr2Xml = (lastSectPrPos !== -1 && lastSectPrEnd !== -1)
-        ? docXml.substring(lastSectPrPos, lastSectPrEnd + 11)
-        : '<w:sectPr><w:headerReference w:type="default" r:id="rId15"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
+      // Extract native body sectPr #2 for Sections 2+ from the end of the template
+      const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
+      const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
+      const sectPr2Xml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
+        ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
+        : '';
 
-      // Ensure a page break exists before Presupuesto section in translatedXML
-      translatedXML = translatedXML.replace(
-        /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>)/i,
-        '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
-      );
+      docXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
 
-      // 8. Assemble complete document XML: Cover page + Live dynamic editor content (transcript, birds, images, budget) + Section properties
-      const finalDocXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
+      // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
+      if (IMAGE_RED_BASE64) {
+        const redData = IMAGE_RED_BASE64.split(',')[1];
+        if (redData) {
+          zip.file('word/media/image_red_local.jpeg', base64ToUint8Array(redData));
+          relsXml = relsXml.replace(
+            /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
+            '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
+          );
+        }
+      }
 
-      zip.file('word/document.xml', finalDocXml);
+      zip.file('word/document.xml', docXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
-
 
       // 6. Generate DOCX file blob and download it
       const outBase64 = zip.generate({ type: 'base64' });
