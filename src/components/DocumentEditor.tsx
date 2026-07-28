@@ -1872,7 +1872,9 @@ ${cleanedBase64}`);
           const tagName = el.tagName.toLowerCase();
           
           if (tagName === 'strong' || tagName === 'b') {
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
+            const bg = el.style.backgroundColor || '';
+            const isYellow = bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:b/>${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:i/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
@@ -1880,9 +1882,11 @@ ${cleanedBase64}`);
           if (tagName === 'u') {
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
-          if (tagName === 'span') {
+          if (tagName === 'span' || tagName === 'mark') {
             const hasBold = el.style.fontWeight === 'bold' || el.classList.contains('font-bold');
-            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
+            const bg = el.style.backgroundColor || '';
+            const isYellow = tagName === 'mark' || bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
+            return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${hasBold ? '<w:b/>' : ''}${isYellow ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(el.textContent || '')}</w:t></w:r>`;
           }
           if (tagName === 'br') {
             return '<w:r><w:br/></w:r>';
