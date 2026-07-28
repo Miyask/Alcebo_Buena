@@ -28,11 +28,14 @@ export const extractAudioFromMediaFile = async (
 
     if (onProgress) onProgress(60);
 
-    const channelData = audioBuffer.getChannelData(0); // Take first channel (mono)
-    const numSamples = channelData.length;
+    // Target maximum samples to ensure WAV blob stays under 2.5 MB (Base64 < 3.4 MB, below Vercel 4.5 MB limit)
+    const MAX_ALLOWED_SAMPLES = 1250000;
+    const step = Math.ceil(numSamples / MAX_ALLOWED_SAMPLES);
+    const targetSampleRate = Math.round(16000 / step);
+    const outputSamples = Math.floor(numSamples / step);
 
-    // Build 16kHz PCM WAV ArrayBuffer
-    const wavBuffer = new ArrayBuffer(44 + numSamples * 2);
+    // Build PCM WAV ArrayBuffer with dynamic downsampling
+    const wavBuffer = new ArrayBuffer(44 + outputSamples * 2);
     const view = new DataView(wavBuffer);
 
     const writeString = (offset: number, str: string) => {
@@ -42,23 +45,23 @@ export const extractAudioFromMediaFile = async (
     };
 
     writeString(0, 'RIFF');
-    view.setUint32(4, 36 + numSamples * 2, true);
+    view.setUint32(4, 36 + outputSamples * 2, true);
     writeString(8, 'WAVE');
     writeString(12, 'fmt ');
     view.setUint32(16, 16, true); // PCM
     view.setUint16(20, 1, true); // Linear PCM
     view.setUint16(22, 1, true); // Mono channel
-    view.setUint32(24, 16000, true); // Sample rate 16000 Hz
-    view.setUint32(28, 16000 * 2, true); // Byte rate
+    view.setUint32(24, targetSampleRate, true); // Dynamic Sample rate (16000, 8000, 4000 Hz)
+    view.setUint32(28, targetSampleRate * 2, true); // Byte rate
     view.setUint16(32, 2, true); // Block align
     view.setUint16(34, 16, true); // Bits per sample
 
     writeString(36, 'data');
-    view.setUint32(40, numSamples * 2, true);
+    view.setUint32(40, outputSamples * 2, true);
 
-    // Write PCM 16-bit samples
+    // Write PCM 16-bit samples with step downsampling
     let offset = 44;
-    for (let i = 0; i < numSamples; i++) {
+    for (let i = 0; i < numSamples && offset < wavBuffer.byteLength; i += step) {
       const s = Math.max(-1, Math.min(1, channelData[i]));
       view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
       offset += 2;
