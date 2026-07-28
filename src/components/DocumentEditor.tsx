@@ -1465,11 +1465,15 @@ Transcripción:
 
     let processedHtmlContent = tempDiv.innerHTML;
 
-    // Convert page breaks to Word MSO break syntax and remove placeholder text and image captions
+    // Convert page breaks to Word MSO break syntax and remove placeholder text, image captions, and yellow highlights
     processedHtmlContent = processedHtmlContent
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<div[^>]*>\s*Fig:[^<]*<\/div>/gi, '')
       .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div class="Section1" style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px; position: relative;">')
+      .replace(/style="[^"]*background-color:\s*[^;"]+;?[^"]*"/gi, '')
+      .replace(/background-color:\s*[^;"]+;?/gi, '')
+      .replace(/<mark[^>]*>/gi, '<span>')
+      .replace(/<\/mark>/gi, '</span>')
       .replace(/<\/div>\s*<hr class="page-break" \/>/gi, '</div><div class="Section2"><br style="page-break-before:always; mso-break-type:section-break" />')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />') + '</div>';
 
@@ -1887,8 +1891,9 @@ ${cleanedBase64}`);
             const bg = el.style.backgroundColor || '';
             const isYellow = bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
             const txt = (el.textContent || '').trim();
-            // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon
-            const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow;
+            const isContenidoItem = txt.includes('ELECCIÓN') || txt.includes('CONTROL DE AVES') || txt.includes('LEGISLACIÓN') || txt.includes('PROBLEMAS ASOCIADOS') || txt.includes('SU CASO') || txt.includes('PRESUPUESTO Y GARANTÍAS');
+            // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon or table of contents items
+            const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow && !isContenidoItem;
             const applyBold = !isBodyParagraph;
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
           }
@@ -2113,7 +2118,17 @@ ${cleanedBase64}`);
 
       // 4. Translate sections HTML from Section 1 onwards (preserving hr.page-break)
       let translatedXML = '';
-      sectionsDiv.childNodes.forEach(child => {
+
+      // Clean all background-color styles and mark tags from DOM before translating to Word XML
+      const cleanSectionsDiv = sectionsDiv.cloneNode(true) as HTMLElement;
+      cleanSectionsDiv.querySelectorAll('*').forEach(node => {
+        if (node instanceof HTMLElement) {
+          node.style.backgroundColor = '';
+          node.style.background = '';
+        }
+      });
+
+      cleanSectionsDiv.childNodes.forEach(child => {
         translatedXML += translateNodeToWordXML(child);
       });
 
