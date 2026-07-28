@@ -1865,7 +1865,54 @@ ${cleanedBase64}`);
         cleanClientAddress = cleanClientAddress.replace(/^Calle\s*/i, '');
       }
 
+      const nativeTableXml = `<w:tbl>
+  <w:tblPr>
+    <w:tblW w:w="5000" w:type="pct"/>
+    <w:tblBorders>
+      <w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>
+      <w:left w:val="single" w:sz="12" w:space="0" w:color="000000"/>
+      <w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>
+      <w:right w:val="single" w:sz="12" w:space="0" w:color="000000"/>
+    </w:tblBorders>
+    <w:tblCellMar>
+      <w:top w:w="180" w:type="dxa"/>
+      <w:bottom w:w="180" w:type="dxa"/>
+      <w:left w:w="240" w:type="dxa"/>
+      <w:right w:w="240" w:type="dxa"/>
+    </w:tblCellMar>
+  </w:tblPr>
+  <w:tr>
+    <w:tc>
+      <w:p>
+        <w:pPr><w:jc w:val="left"/><w:rPr><w:b/><w:sz w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Presupuesto para</w:t></w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="left"/><w:rPr><w:b/><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Com. Prop. ${escapeXml(cleanClientName)}</w:t></w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>C/ ${escapeXml(cleanClientAddress)}</w:t></w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>28001 Madrid</w:t></w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Att: D. Presidente / Administrador de Fincas</w:t></w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="right"/><w:rPr><w:b/><w:sz w:val="18"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
+        <w:r><w:rPr><w:b/><w:sz w:val="18"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Ref: ${escapeXml(finalRefCode)}</w:t></w:r>
+      </w:p>
+    </w:tc>
+  </w:tr>
+</w:tbl>`;
+
       docXml = docXml
+        .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?<v:shape[^>]*id="_x0000_s1098"[\s\S]*?<\/v:shape>(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, nativeTableXml)
         .replace(/(id="_x0000_s1098"[^>]*style="[^"]*height:)[^;"]+/gi, '$1180pt')
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
@@ -2104,21 +2151,30 @@ ${cleanedBase64}`);
               
               let pxWidth = 280;
               const styleWidth = el.style.width || el.getAttribute('width') || '';
-              const isSignature = (el.getAttribute('data-img-id')?.includes('sello') || el.classList.contains('signature-image') || (src.length > 100000 && !styleWidth));
+              const imgId = el.getAttribute('data-img-id') || '';
+
+              const isSignature = imgId.includes('sello') || imgId.includes('firma') || el.classList.contains('signature-image') || src.includes('sello') || src.includes('firma');
+              const isBirdImage = imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || src.includes('extracted_bird');
+              const isUserAddedOrDrawn = imgId.startsWith('img_') || el.closest('.image-container-block') !== null;
+
               if (isSignature) {
                 pxWidth = 140;
+              } else if (isBirdImage) {
+                pxWidth = 260;
               } else if (styleWidth && !styleWidth.includes('%')) {
                 const parsed = parseInt(styleWidth);
                 if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
+              } else if (isUserAddedOrDrawn) {
+                pxWidth = 400;
               }
               
               let widthPt = pxWidth * 0.75;
               if (isSignature) {
-                widthPt = 120;
-              } else if (widthPt > 320) {
-                widthPt = 320;
-              } else if (widthPt < 80) {
-                widthPt = 240;
+                widthPt = 110;
+              } else if (widthPt > 450) {
+                widthPt = 450;
+              } else if (widthPt < 100) {
+                widthPt = 200;
               }
 
               let aspectRatio = 0.75;
