@@ -1885,6 +1885,7 @@ ${cleanedBase64}`);
             
             return `<w:p>
               <w:pPr>
+                <w:spacing w:before="60" w:after="100" w:line="276" w:lineRule="auto"/>
                 <w:jc w:val="both"/>
                 <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
               </w:pPr>
@@ -1897,6 +1898,7 @@ ${cleanedBase64}`);
             
             return `<w:p>
               <w:pPr>
+                <w:spacing w:before="240" w:after="120"/>
                 <w:rPr>
                   <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
                   <w:b/>
@@ -1930,6 +1932,7 @@ ${cleanedBase64}`);
                     <w:ilvl w:val="0"/>
                     <w:numId w:val="17"/>
                   </w:numPr>
+                  <w:spacing w:before="30" w:after="50" w:line="276" w:lineRule="auto"/>
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
