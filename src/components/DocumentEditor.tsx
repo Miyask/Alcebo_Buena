@@ -1888,13 +1888,11 @@ ${cleanedBase64}`);
           const tagName = el.tagName.toLowerCase();
           
           if (tagName === 'strong' || tagName === 'b') {
-            const bg = el.style.backgroundColor || '';
-            const isYellow = bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
             const txt = (el.textContent || '').trim();
-            const isContenidoItem = txt.includes('ELECCIÓN') || txt.includes('CONTROL DE AVES') || txt.includes('LEGISLACIÓN') || txt.includes('PROBLEMAS ASOCIADOS') || txt.includes('SU CASO') || txt.includes('PRESUPUESTO Y GARANTÍAS');
-            // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon or table of contents items
-            const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow && !isContenidoItem;
-            const applyBold = !isBodyParagraph;
+            const txtUpper = txt.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const isContenidoItem = txtUpper.includes('ELECCION') || txtUpper.includes('CONTROL DE AVES') || txtUpper.includes('LEGISLACION') || txtUpper.includes('PROBLEMAS ASOCIADOS') || txtUpper.includes('SU CASO') || txtUpper.includes('PRESUPUESTO');
+            const isLongParagraph = txt.length > 150 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.');
+            const applyBold = !isLongParagraph || isContenidoItem;
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
