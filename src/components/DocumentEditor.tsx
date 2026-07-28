@@ -409,7 +409,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
     if (quote.documentHtml && quote.documentHtml.length > 50) {
-      let docHtml = quote.documentHtml;
+      let docHtml = quote.documentHtml
+        .replace(/src="\$\{logoUrl\}"/g, `src="${logoUrl}"`)
+        .replace(/src="undefined"/g, `src="${logoUrl}"`);
       
       // Clean up any duplicate cover-page-wrapper that resulted from the previous bug
       if (docHtml.includes('cover-page-wrapper') && (docHtml.match(/cover-page-wrapper/g) || []).length > 1) {
