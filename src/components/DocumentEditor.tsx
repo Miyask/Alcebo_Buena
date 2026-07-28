@@ -488,7 +488,23 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
       }
 
-      // Strip all remaining footer artifacts globally
+      // Strip all remaining unboxed cover artifacts before CONTENIDO
+      if (docHtml.includes('cover-page-wrapper') && docHtml.includes('CONTENIDO')) {
+        const parts = docHtml.split('CONTENIDO');
+        let coverPart = parts[0];
+        const bodyPart = parts.slice(1).join('CONTENIDO');
+        
+        coverPart = coverPart
+          .replace(/<p[^>]*>\s*<strong>Informe Técnico<\/strong>\s*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*Presupuesto para\s*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*Ref:\s*[^<]*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*Com\.\s*Prop\.\s*[^<]*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*C\/\s*[^<]*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*28001\s*Madrid\s*<\/p>/gi, '')
+          .replace(/<p[^>]*>\s*Att:\s*D\.\s*[^<]*<\/p>/gi, '');
+          
+        docHtml = coverPart + 'CONTENIDO' + bodyPart;
+      }
       docHtml = docHtml.replace(/<p[^>]*><strong>presupuesto<\/strong><\/p>/gi, '');
 
       // Patch old drafts that don't have page-break class
@@ -573,7 +589,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml(selectedBirds))
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, getSystemsHtml(selectedSystems))
-        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
+        .replace(/<p><strong>presupuesto<\/strong><\/p>[\s\S]*?<p><strong>CONTENIDO<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
           <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
             <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
           </div>
@@ -594,13 +610,11 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
             </div>
           </div>
-        </div>`)
-        .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
-        .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
+        </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<hr class="page-break" /><p><strong>6.- PRESUPUESTO Y GARANTÍAS');
 
       setEditorHtml(wrapImagesInEditor(initialHtml));
     }
@@ -1882,10 +1896,15 @@ ${cleanedBase64}`);
             el.childNodes.forEach(child => {
               childXml += translateNodeToWordXML(child);
             });
+
+            const textContent = el.textContent || '';
+            const isSectionHeading = /^\s*\d+\s*[\.-]\s*/.test(textContent) || !!el.querySelector('strong')?.textContent?.match(/^\s*\d+\s*[\.-]\s*/);
+            const beforeSpacing = isSectionHeading ? '360' : '60';
+            const afterSpacing = isSectionHeading ? '140' : '100';
             
             return `<w:p>
               <w:pPr>
-                <w:spacing w:before="60" w:after="100" w:line="276" w:lineRule="auto"/>
+                <w:spacing w:before="${beforeSpacing}" w:after="${afterSpacing}" w:line="276" w:lineRule="auto"/>
                 <w:jc w:val="both"/>
                 <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
               </w:pPr>
