@@ -1883,10 +1883,14 @@ ${cleanedBase64}`);
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
+        .replace(/(Ref-(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
         .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
         .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientAddress)}$2`)
         .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
         .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
+        .replace(/@@@@@@@@@@@/g, escapeXml(finalRefCode))
+        .replace(/@@@@@@@@/g, escapeXml(cleanClientName))
+        .replace(/@@@@/g, '001')
         // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
         .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
