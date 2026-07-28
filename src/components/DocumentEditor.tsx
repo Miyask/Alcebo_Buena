@@ -2078,7 +2078,7 @@ ${cleanedBase64}`);
           }
 
           if (tagName === 'hr' && el.classList.contains('page-break')) {
-            return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+            return `<w:r><w:br w:type="page"/></w:r>`;
           }
           
           let childXml = '';
@@ -2093,8 +2093,16 @@ ${cleanedBase64}`);
       // 4. Translate sections HTML from Section 1 onwards (preserving hr.page-break)
       let translatedXML = '';
       sectionsDiv.childNodes.forEach(child => {
-        translatedXML += translateNodeToWordXML(child);
+        const xml = translateNodeToWordXML(child);
+        if (xml && !xml.trim().startsWith('<w:p') && !xml.trim().startsWith('<w:tbl')) {
+          translatedXML += `<w:p><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr></w:pPr>${xml}</w:p>`;
+        } else {
+          translatedXML += xml;
+        }
       });
+
+      // Sanitize nested <w:p> tags inside <w:p>
+      translatedXML = translatedXML.replace(/<w:p[^>]*>\s*(<w:p[^>]*>[\s\S]*?<\/w:p>)\s*<\/w:p>/gi, '$1');
 
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
