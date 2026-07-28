@@ -450,7 +450,28 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       // Patch old drafts that don't have cover-page-wrapper
       if (!docHtml.includes('cover-page-wrapper')) {
         docHtml = docHtml
-          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
+          .replace(/<p><strong>presupuesto<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
+          <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
+            <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
+          </div>
+          <div style="margin-bottom: 25px;">
+            <div style="border: 2px solid #000; padding: 6px 30px; display: inline-block; background: #fff;">
+              <h1 style="font-size: 20pt; font-weight: bold; margin: 0; text-decoration: underline; color: #000;">Informe Técnico</h1>
+            </div>
+          </div>
+          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; position: relative; max-width: 520px; margin: 0 auto; box-sizing: border-box; min-height: 140px; background: #fff;">
+            <div style="font-size: 11pt; font-weight: bold; margin-bottom: 10px; color: #000;">Presupuesto para</div>
+            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
+              <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
+              <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
+            </div>
+            <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
+              Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
+            </div>
+          </div>
+        </div>`)
           .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>');
       }
 
@@ -539,7 +560,28 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml(selectedBirds))
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, getSystemsHtml(selectedSystems))
-        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
+        .replace(/<p><strong>presupuesto<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
+          <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
+            <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
+          </div>
+          <div style="margin-bottom: 25px;">
+            <div style="border: 2px solid #000; padding: 6px 30px; display: inline-block; background: #fff;">
+              <h1 style="font-size: 20pt; font-weight: bold; margin: 0; text-decoration: underline; color: #000;">Informe Técnico</h1>
+            </div>
+          </div>
+          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; position: relative; max-width: 520px; margin: 0 auto; box-sizing: border-box; min-height: 140px; background: #fff;">
+            <div style="font-size: 11pt; font-weight: bold; margin-bottom: 10px; color: #000;">Presupuesto para</div>
+            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
+              <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
+              <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
+            </div>
+            <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
+              Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
+            </div>
+          </div>
+        </div>`)
         .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
         .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
@@ -1633,16 +1675,18 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards (ignoring duplicate Cover Page elements)
+      // Filter children to keep all body sections from CONTENIDO / Section 1 onwards (strictly discarding any HTML cover page elements)
+      tempDiv.querySelectorAll('.cover-page-wrapper').forEach(el => el.remove());
+
       const sectionsDiv = document.createElement('div');
-      
       const allElements = Array.from(tempDiv.querySelectorAll('*'));
       const startEl = allElements.find(el => {
+        if (el.closest('.cover-page-wrapper')) return false;
         if (el.children.length > 0 && Array.from(el.children).some(c => c.textContent?.toUpperCase().includes('CONTENIDO'))) {
           return false;
         }
         const text = (el.textContent || '').trim().toUpperCase();
-        return text === 'CONTENIDO' || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES');
+        return text === 'CONTENIDO' || text.startsWith('1.-') || text.startsWith('1. -');
       });
 
       if (startEl) {
@@ -1667,6 +1711,9 @@ ${cleanedBase64}`);
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
       let docXml = zip.file('word/document.xml').asText();
+
+      // Crucial Fix: Increase height of shape _x0000_s1098 from 66.65pt to 110pt so Att: D. Presidente / Administrador de Fincas is NOT clipped at the bottom of the Page 1 box!
+      docXml = docXml.replace('height:66.65pt', 'height:110pt');
 
       // Add DrawingML namespaces to the root w:document tag to avoid red X / broken images in Word 2013
       // We do this first so character indices computed later are correct.
