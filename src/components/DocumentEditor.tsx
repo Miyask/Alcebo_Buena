@@ -2228,14 +2228,22 @@ ${cleanedBase64}`);
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
 
-      // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
-      const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
-      zip.file('word/header1.xml', emptyHeader1);
+      // 5. Clear Header 1 (Cover Page header) safely while preserving all native OpenXML namespace declarations
+      let header1Xml = zip.file('word/header1.xml')?.asText() || '';
+      if (header1Xml) {
+        const hdrStart = header1Xml.indexOf('<w:hdr');
+        const hdrEnd = header1Xml.indexOf('>', hdrStart);
+        if (hdrStart !== -1 && hdrEnd !== -1) {
+          const rootHdrTag = header1Xml.substring(hdrStart, hdrEnd + 1);
+          header1Xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${rootHdrTag}<w:p/></w:hdr>`;
+          zip.file('word/header1.xml', header1Xml);
+        }
+      }
 
       // Preserved original corporate header2.xml without inserting vertical watermark shape
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
+        header2Xml = header2Xml.replace(/<v:shape[^>]*id="_x0000_s1163"[\s\S]*?<\/v:shape>/gi, '');
         zip.file('word/header2.xml', header2Xml);
       }
 
