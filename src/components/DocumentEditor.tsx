@@ -614,7 +614,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<hr class="page-break" /><p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
 
       setEditorHtml(wrapImagesInEditor(initialHtml));
     }
@@ -2095,6 +2095,9 @@ ${cleanedBase64}`);
       sectionsDiv.childNodes.forEach(child => {
         translatedXML += translateNodeToWordXML(child);
       });
+
+      // Deduplicate consecutive page breaks to eliminate blank pages in Word
+      translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
 
       // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
       const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
