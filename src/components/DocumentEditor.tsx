@@ -575,6 +575,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const p2_val = quote.price2 || price2;
       const p3_val = quote.price3 || price3;
 
+      const formattedName = clientNameInput.trim().toUpperCase().startsWith('COMUNIDAD DE PROPIETARIOS') || clientNameInput.trim().toUpperCase().startsWith('COM. PROP.') || clientNameInput.trim().toUpperCase().startsWith('C.P.') 
+        ? escapeXml(clientNameInput.trim().toUpperCase()) 
+        : `Com. Prop. ${escapeXml(clientNameInput.trim().toUpperCase())}`;
+
+      const formattedAddress = clientAddressInput.trim().toUpperCase().startsWith('C/') || clientAddressInput.trim().toUpperCase().startsWith('CALLE') || clientAddressInput.trim().toUpperCase().startsWith('AVDA')
+        ? escapeXml(clientAddressInput.trim())
+        : `C/ ${escapeXml(clientAddressInput.trim())}`;
+
       let initialHtml = templateWithPlaceholders
         .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
@@ -611,16 +619,18 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               <h1 style="font-size: 20pt; font-weight: bold; margin: 0; text-decoration: underline; color: #000;">Informe Técnico</h1>
             </div>
           </div>
-          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; position: relative; max-width: 520px; margin: 0 auto; box-sizing: border-box; min-height: 140px; background: #fff;">
-            <div style="font-size: 11pt; font-weight: bold; margin-bottom: 10px; color: #000;">Presupuesto para</div>
-            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
-              <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
-              <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
+          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; max-width: 520px; margin: 0 auto; box-sizing: border-box; background: #fff;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+              <div style="font-size: 11pt; font-weight: bold; color: #000;">Presupuesto para</div>
+              <div style="border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000; white-space: nowrap;">
+                Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
+              </div>
+            </div>
+            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 20px; color: #000;">
+              <div><strong class="client-name-field">${formattedName}</strong></div>
+              <div><span class="client-address-field">${formattedAddress}</span></div>
               <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
-            </div>
-            <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
-              Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
             </div>
           </div>
         </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
