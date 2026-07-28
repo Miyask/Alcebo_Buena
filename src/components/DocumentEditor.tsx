@@ -1469,7 +1469,7 @@ Transcripción:
     processedHtmlContent = processedHtmlContent
       .replace(/<p[^>]*>\s*(?:<em>)?\s*Foto\s*Muestra\s*(?:<\/em>)?\s*<\/p>/gi, '')
       .replace(/<div[^>]*>\s*Fig:[^<]*<\/div>/gi, '')
-      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div class="Section1" style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px; position: relative;"><div style="position: absolute; right: -30px; top: 120px; font-size: 54pt; font-weight: bold; color: #EAEAEA; writing-mode: vertical-rl; transform: rotate(180deg); font-family: \'Verdana\', sans-serif; letter-spacing: 6px; user-select: none;">presupuesto</div>')
+      .replace(/<div[^>]*class="[^"]*cover-page-wrapper[^"]*"[^>]*>/gi, '<div class="Section1" style="text-align: center; display: block; margin-top: 10px; margin-bottom: 20px; position: relative;">')
       .replace(/<\/div>\s*<hr class="page-break" \/>/gi, '</div><div class="Section2"><br style="page-break-before:always; mso-break-type:section-break" />')
       .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*\/?>/gi, '<br style="page-break-before:always; mso-break-type:section-break" />') + '</div>';
 
@@ -2153,13 +2153,9 @@ ${cleanedBase64}`);
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
       zip.file('word/header1.xml', emptyHeader1);
 
-      // Inject vertical watermark shape inside the existing textbox w:pict element in header2.xml
+      // Preserved original corporate header2.xml without inserting vertical watermark shape
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
-      const verticalWatermarkShape = `<v:shape id="_x0000_s1163" type="#_x0000_t202" style="position:absolute;left:0;text-align:left;margin-left:421.25pt;margin-top:114.85pt;width:126pt;height:397.75pt;z-index:251652608" filled="f" stroked="f"><v:textbox style="layout-flow:vertical;mso-layout-flow-alt:bottom-to-top;mso-next-textbox:#_x0000_s1163"><w:txbxContent><w:p w:rsidR="00F51028" w:rsidRPr="002D561F" w:rsidRDefault="00F51028" w:rsidP="0053151D"><w:pPr><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="DDDDDD"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr></w:pPr><w:r w:rsidRPr="002D561F"><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:color w:val="EAEAEA"/><w:sz w:val="108"/><w:szCs w:val="108"/></w:rPr><w:t>presupuesto</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape>`;
-
-      const firstPictEnd = header2Xml.indexOf('</w:pict>');
-      if (firstPictEnd !== -1 && !header2Xml.includes('_x0000_s1163')) {
-        header2Xml = header2Xml.substring(0, firstPictEnd) + verticalWatermarkShape + header2Xml.substring(firstPictEnd);
+      if (header2Xml) {
         zip.file('word/header2.xml', header2Xml);
       }
 
