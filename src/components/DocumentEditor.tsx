@@ -2232,22 +2232,17 @@ ${cleanedBase64}`);
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
 
-      // 5. Clear Header 1 (Cover Page header) safely while preserving all native OpenXML namespace declarations
+      // 5. Apply placeholders to header1.xml (preserves corporate header logo & vertical rotated 'presupuesto' watermark shape)
       let header1Xml = zip.file('word/header1.xml')?.asText() || '';
       if (header1Xml) {
-        const hdrStart = header1Xml.indexOf('<w:hdr');
-        const hdrEnd = header1Xml.indexOf('>', hdrStart);
-        if (hdrStart !== -1 && hdrEnd !== -1) {
-          const rootHdrTag = header1Xml.substring(hdrStart, hdrEnd + 1);
-          header1Xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${rootHdrTag}<w:p/></w:hdr>`;
-          zip.file('word/header1.xml', header1Xml);
-        }
+        header1Xml = applyPlaceholders(header1Xml);
+        zip.file('word/header1.xml', header1Xml);
       }
 
-      // Preserved original corporate header2.xml without inserting vertical watermark shape
+      // Preserve original corporate header2.xml if present
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
-        header2Xml = header2Xml.replace(/<v:shape[^>]*id="_x0000_s1163"[\s\S]*?<\/v:shape>/gi, '');
+        header2Xml = applyPlaceholders(header2Xml);
         zip.file('word/header2.xml', header2Xml);
       }
 
@@ -2273,6 +2268,9 @@ ${cleanedBase64}`);
       if (!coverXml) {
         coverXml = docXml;
       }
+
+      // Apply placeholders to coverXml
+      coverXml = applyPlaceholders(coverXml);
 
       // Remove footer reference from coverXml so Page 1 (Portada) has NO page number in footer
       coverXml = coverXml.replace(/<w:footerReference[^>]*\/>/g, '');
