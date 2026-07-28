@@ -2277,17 +2277,6 @@ ${cleanedBase64}`);
         docXml = docXml.replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, photosXml);
       }
 
-      // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
-      if (IMAGE_RED_BASE64) {
-        const redData = IMAGE_RED_BASE64.split(',')[1];
-        if (redData) {
-          zip.file('word/media/image_red_local.jpeg', base64ToUint8Array(redData));
-          relsXml = relsXml.replace(
-            /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
-            '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
-          );
-        }
-      }
 
       zip.file('word/document.xml', docXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
