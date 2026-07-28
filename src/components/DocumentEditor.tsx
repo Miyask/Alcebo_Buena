@@ -1738,34 +1738,13 @@ ${cleanedBase64}`);
         rootContainer = innerWrapper;
       }
 
-      let bodyStarted = false;
       Array.from(rootContainer.children).forEach(child => {
         const el = child as HTMLElement;
-        const text = (el.textContent || '').trim().toUpperCase();
-
-        if (!bodyStarted) {
-          if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
-            bodyStarted = true;
-          }
-        }
-
-        if (bodyStarted) {
-          if (!el.classList.contains('cover-page-wrapper')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
+        const text = (el.textContent || '').toUpperCase();
+        if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
+          sectionsDiv.appendChild(child.cloneNode(true));
         }
       });
-
-      // Fallback: If sectionsDiv is still empty, append all children except cover page
-      if (sectionsDiv.childNodes.length === 0) {
-        Array.from(rootContainer.children).forEach(child => {
-          const el = child as HTMLElement;
-          const text = (el.textContent || '').toUpperCase();
-          if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
-        });
-      }
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
@@ -1953,7 +1932,7 @@ ${cleanedBase64}`);
           
           if (tagName === 'p') {
             const img = el.querySelector('img');
-            if (img) {
+            if (img && !(el.textContent || '').trim()) {
               return translateNodeToWordXML(img);
             }
             
@@ -2167,9 +2146,8 @@ ${cleanedBase64}`);
               if (aspectRatio > 1.5) aspectRatio = 1.5;
               if (aspectRatio < 0.3) aspectRatio = 0.3;
 
-              const heightPt = widthPt * aspectRatio;
-              
-              return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+              const drawingXml = createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+              return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="140"/></w:pPr>${drawingXml}</w:p>`;
             }
             return '';
           }
