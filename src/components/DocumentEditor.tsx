@@ -143,7 +143,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     let html = '';
     if (activeSystems.includes('Red')) {
       html += `
-        <p><strong>RED NETWORK ANTI-PALOMAS:</strong> sus características generales son las siguientes:</p>
+        <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">RED NETWORK ANTI-PALOMAS:</strong> sus características generales son las siguientes:</p>
         <ul>
           <li>Base de polietileno trenzado pretratado contra la radiación U.V.</li>
           <li>Fijación de la red sobre cable de 2mm. de diámetro con puntos de anclaje de seguridad y pasadores, todos de acero galvanizado.</li>
@@ -155,7 +155,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
     if (activeSystems.includes('Varillas')) {
       html += `
-        <p><strong>VARILLAS AVIPOINT :</strong> sus características son las siguientes:</p>
+        <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">VARILLAS AVIPOINT :</strong> sus características son las siguientes:</p>
         <ul>
           <li>Alambre de acero inoxidable 302 de 1,4 mm. Diámetro emportado en una base de policarbonato protegido contra la luz ultravioleta.</li>
           <li>Punta roma de baja reflectancia que no daña a las aves pero impide su posado.</li>
@@ -166,7 +166,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
     if (activeSystems.includes('Eléctrico')) {
       html += `
-        <p><strong>SISTEMA ELECTROESTÁTICO DISUASORIO (ELÉCTRICO):</strong> sus características son las siguientes:</p>
+        <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">SISTEMA ELECTROESTÁTICO DISUASORIO (ELÉCTRICO):</strong> sus características son las siguientes:</p>
         <ul>
           <li>Solución de alta discreción visual, ideal para edificios catalogados o zonas de alto valor estético.</li>
           <li>Emisión de impulsos electroestáticos de baja frecuencia y baja intensidad, completamente inocuos para las aves pero altamente disuasorios.</li>
@@ -176,7 +176,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
     if (activeSystems.includes('Capturas')) {
       html += `
-        <p><strong>PLAN DE CAPTURAS SELECTIVAS:</strong> sus características son las siguientes:</p>
+        <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">PLAN DE CAPTURAS SELECTIVAS:</strong> sus características son las siguientes:</p>
         <ul>
           <li>Instalación de jaulas trampa homologadas dotadas de comederos, bebederos y sombreado para garantizar el bienestar animal.</li>
           <li>Revisiones y mantenimiento periódico por técnicos autorizados para control de capturas, retirada selectiva y cebado.</li>
