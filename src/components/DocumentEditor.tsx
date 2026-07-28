@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import logoUrl from '../assets/logo.png';
 import { Quote, Template, ConditionalText, SystemConfig } from '../types';
 import { DEFAULT_CONDITIONAL_TEXTS, DEFAULT_TEMPLATES } from '../data/defaults';
 import ImageAnnotator from './ImageAnnotator';
