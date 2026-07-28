@@ -1865,74 +1865,17 @@ ${cleanedBase64}`);
         cleanClientAddress = cleanClientAddress.replace(/^Calle\s*/i, '');
       }
 
-      const nativeTableXml = `<w:tbl>
-  <w:tblPr>
-    <w:tblW w:w="5000" w:type="pct"/>
-    <w:tblBorders>
-      <w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>
-      <w:left w:val="single" w:sz="12" w:space="0" w:color="000000"/>
-      <w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>
-      <w:right w:val="single" w:sz="12" w:space="0" w:color="000000"/>
-    </w:tblBorders>
-    <w:tblCellMar>
-      <w:top w:w="180" w:type="dxa"/>
-      <w:bottom w:w="180" w:type="dxa"/>
-      <w:left w:w="240" w:type="dxa"/>
-      <w:right w:w="240" w:type="dxa"/>
-    </w:tblCellMar>
-  </w:tblPr>
-  <w:tr>
-    <w:tc>
-      <w:p>
-        <w:pPr><w:jc w:val="left"/><w:rPr><w:b/><w:sz w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Presupuesto para</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="left"/><w:rPr><w:b/><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Com. Prop. ${escapeXml(cleanClientName)}</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>C/ ${escapeXml(cleanClientAddress)}</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>28001 Madrid</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="left"/><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Att: D. Presidente / Administrador de Fincas</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="right"/><w:rPr><w:b/><w:sz w:val="18"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr></w:pPr>
-        <w:r><w:rPr><w:b/><w:sz w:val="18"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Ref: ${escapeXml(finalRefCode)}</w:t></w:r>
-      </w:p>
-    </w:tc>
-  </w:tr>
-</w:tbl>`;
-
-      const shapePos = docXml.indexOf('_x0000_s1098');
-      if (shapePos !== -1) {
-        let pStart = docXml.lastIndexOf('<w:p', shapePos);
-        while (true) {
-          const beforeStr = docXml.substring(0, pStart);
-          const txbxPos = beforeStr.lastIndexOf('<w:txbxContent>');
-          const txbxEnd = beforeStr.lastIndexOf('</w:txbxContent>');
-          if (txbxPos !== -1 && txbxPos > txbxEnd) {
-            pStart = docXml.lastIndexOf('<w:p', txbxPos - 1);
-          } else {
-            break;
-          }
-        }
-        
-        let pEnd = docXml.indexOf('</w:p>', shapePos);
-        const shapeEnd = docXml.indexOf('</v:shape>', shapePos);
-        if (shapeEnd !== -1) {
-          pEnd = docXml.indexOf('</w:p>', shapeEnd) + 6;
-        }
-        
-        if (pStart !== -1 && pEnd > pStart) {
-          docXml = docXml.substring(0, pStart) + nativeTableXml + docXml.substring(pEnd);
+      // Update cover page VML shape dimensions (_x0000_s1098) so it fits long client names & ref codes without clipping
+      const shapePosTag = docXml.indexOf('_x0000_s1098');
+      if (shapePosTag !== -1) {
+        const shapeTagPos = docXml.lastIndexOf('<v:shape', shapePosTag);
+        const shapeTagEnd = docXml.indexOf('>', shapeTagPos);
+        if (shapeTagPos !== -1 && shapeTagEnd !== -1) {
+          const oldTag = docXml.substring(shapeTagPos, shapeTagEnd + 1);
+          const newTag = oldTag
+            .replace(/height:[^;"]+/, 'height:160pt;mso-fit-shape-to-text:t')
+            .replace(/width:[^;"]+/, 'width:360pt');
+          docXml = docXml.replace(oldTag, newTag);
         }
       }
 
