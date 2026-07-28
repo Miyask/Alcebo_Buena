@@ -10,6 +10,16 @@ import { WORD_TEMPLATE_BASE64 } from '../data/wordTemplateBase64';
 import { BIRDS_DATA } from '../data/birdsData';
 import { extractAudioFromMediaFile } from '../utils/audioCompressor';
 
+const escapeXml = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+};
+
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
 let IMAGE_VARILLAS_BASE64 = '';
@@ -1786,16 +1796,6 @@ ${cleanedBase64}`);
         relIds.push(parseInt(rMatch[1], 10));
       }
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
-
-      const escapeXml = (str: string): string => {
-        if (!str) return '';
-        return str
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&apos;');
-      };
 
       // Replace metadata placeholders in the template (such as Cover Page)
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
