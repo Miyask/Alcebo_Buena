@@ -2032,24 +2032,26 @@ ${cleanedBase64}`);
 
           if (tagName === 'ul' || tagName === 'ol') {
             let listXml = '';
-            el.querySelectorAll('li').forEach(li => {
+            const isUnordered = tagName === 'ul';
+            const items = el.querySelectorAll('li');
+            items.forEach((li, idx) => {
               let liChildXml = '';
               li.childNodes.forEach(c => {
                 liChildXml += translateNodeToWordXML(c);
               });
               const cleanLiChild = liChildXml.replace(/<\/?w:p[^>]*>/gi, '');
+              const bulletPrefix = isUnordered
+                ? `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="333333"/></w:rPr><w:t xml:space="preserve">▪  </w:t></w:r>`
+                : `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t xml:space="preserve">${idx + 1}.  </w:t></w:r>`;
+
               listXml += `<w:p>
                 <w:pPr>
-                  <w:pStyle w:val="ListParagraph"/>
-                  <w:numPr>
-                    <w:ilvl w:val="0"/>
-                    <w:numId w:val="17"/>
-                  </w:numPr>
+                  <w:ind w:left="360" w:hanging="240"/>
                   <w:spacing w:before="30" w:after="50" w:line="276" w:lineRule="auto"/>
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
-                ${cleanLiChild}
+                ${bulletPrefix}${cleanLiChild}
               </w:p>`;
             });
             return listXml;
