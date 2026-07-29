@@ -2101,7 +2101,7 @@ ${cleanedBase64}`);
           if (tagName === 'ul' || tagName === 'ol') {
             let listXml = '';
             const isUnordered = tagName === 'ul';
-            const items = el.querySelectorAll('li');
+            const items = Array.from(el.children).filter(child => child.tagName.toLowerCase() === 'li');
             items.forEach((li, idx) => {
               let liChildXml = '';
               li.childNodes.forEach(c => {
@@ -2351,7 +2351,7 @@ ${cleanedBase64}`);
         .replace(/deHuecos/gi, 'de Huecos')
         .replace(/deZonas/gi, 'de Zonas')
         .replace(/maquinas/gi, 'máquinas')
-        .replace(/la prolongada persistencia en el tiempo\s+el efecto mínimo estético/gi, '')
+        .replace(/El sistema elegido garantizará:\s*(?:<[^>]+>\s*)*[▪\s]*la prolongada persistencia en el tiempo\s*(?:<[^>]+>\s*)*[▪\s]*el efecto mínimo estético/gi, 'El sistema elegido garantizará:')
         .replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
 
       // Preserve header2.xml / footer files if present
