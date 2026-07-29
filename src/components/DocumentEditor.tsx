@@ -597,6 +597,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
         .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
         .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
+        .replace(/deCanalones/gi, 'de Canalones')
+        .replace(/deHuecos/gi, 'de Huecos')
+        .replace(/deZonas/gi, 'de Zonas')
         .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${p1_val}</span>`)
         .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${p2_val}</span>`)
         .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
@@ -2400,13 +2403,25 @@ ${cleanedBase64}`);
       }
 
       // Remove any leading page breaks from translatedXML to prevent blank empty page at start of body
-      translatedXML = translatedXML.replace(/^(?:\s*<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>)+/i, '');
-      // Deduplicate consecutive page breaks anywhere in translatedXML (collapses 2+ into 1)
+      translatedXML = translatedXML.replace(/^(?:\s*<w:p><w:r><w:br w:type="page"\s*\/>\s*<\/w:r>\s*<\/w:p>)+/i, '');
+      // Deduplicate consecutive page breaks anywhere in translatedXML
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
-      // Collapse multiple page break paragraphs right before PRESUPUESTO heading into exactly 1
+      
+      // 1. Remove all standalone page break paragraphs immediately before PRESUPUESTO heading
       translatedXML = translatedXML.replace(
         /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)+(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?\s*[\.\-]?\s*PRESUPUESTO|PRESUPUESTO\s*Y\s*GARANT))/gi,
-        '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
+        '$1'
+      );
+      // 2. Inject native <w:pageBreakBefore/> into paragraph properties of PRESUPUESTO heading so Word cleanly starts it at top of next page with ZERO blank pages!
+      translatedXML = translatedXML.replace(
+        /(<w:p\b[^>]*>(?:\s*<w:pPr>[\s\S]*?<\/w:pPr>|\s*)(?:(?!<\/w:p>)[\s\S])*?(?:6\.?\s*[\.\-]?\s*PRESUPUESTO|PRESUPUESTO\s*Y\s*GARANT))/gi,
+        (match) => {
+          if (match.includes('<w:pPr>')) {
+            return match.replace('<w:pPr>', '<w:pPr><w:pageBreakBefore/>');
+          } else {
+            return match.replace('<w:p', '<w:p><w:pPr><w:pageBreakBefore/></w:pPr>');
+          }
+        }
       );
 
       // Section properties with titlePg: Page 1 (Portada) has NO top header line or footer number. Pages 2+ get watermark rId22 and page numbers rId99.
