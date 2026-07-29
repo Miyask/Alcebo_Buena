@@ -591,6 +591,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
         .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
         .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
+        .replace(/de\[ZONA_1\]/g, `de <span class="zona-1-field">${z1}</span>`)
+        .replace(/de\[ZONA_2\]/g, `de <span class="zona-2-field">${z2}</span>`)
+        .replace(/de\[ZONA_3\]/g, `de <span class="zona-3-field">${z3}</span>`)
         .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
         .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
         .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
@@ -1831,51 +1834,23 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Extract body sections from CONTENIDO / Section 1 onwards (strictly discarding any HTML cover page elements)
+      // Extract body sections starting strictly at CONTENIDO (discarding all HTML cover page elements before CONTENIDO)
       const sectionsDiv = document.createElement('div');
+      const fullTempHtml = tempDiv.innerHTML;
+      const contenidoIdx = fullTempHtml.indexOf('CONTENIDO');
 
-      let rootContainer: HTMLElement = tempDiv;
-      const innerWrapper = tempDiv.querySelector('.word-docx-high-fidelity, .Section1') as HTMLElement;
-      if (innerWrapper) {
-        rootContainer = innerWrapper;
+      let cleanBodyHtml = '';
+      if (contenidoIdx !== -1) {
+        const pStartBeforeContenido = fullTempHtml.lastIndexOf('<p', contenidoIdx);
+        cleanBodyHtml = pStartBeforeContenido !== -1 ? fullTempHtml.substring(pStartBeforeContenido) : fullTempHtml.substring(contenidoIdx);
+      } else {
+        cleanBodyHtml = fullTempHtml;
       }
 
-      let bodyStarted = false;
-      Array.from(rootContainer.children).forEach(child => {
-        const el = child as HTMLElement;
-        const text = (el.textContent || '').trim().toUpperCase();
+      sectionsDiv.innerHTML = cleanBodyHtml;
 
-        // Skip cover page elements so Page 2 does NOT duplicate the portada
-        if (
-          el.classList.contains('cover-page-wrapper') ||
-          el.querySelector('.cover-page-wrapper') ||
-          text.includes('INFORME TÉCNICO') ||
-          text.includes('PRESUPUESTO PARA')
-        ) {
-          return;
-        }
-
-        if (!bodyStarted) {
-          if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
-            bodyStarted = true;
-          }
-        }
-
-        if (bodyStarted) {
-          sectionsDiv.appendChild(child.cloneNode(true));
-        }
-      });
-
-      // Fallback: If sectionsDiv is still empty, append all children except cover page
-      if (sectionsDiv.childNodes.length === 0) {
-        Array.from(rootContainer.children).forEach(child => {
-          const el = child as HTMLElement;
-          const text = (el.textContent || '').toUpperCase();
-          if (!el.classList.contains('cover-page-wrapper') && !text.includes('PRESUPUESTO PARA') && !text.includes('INFORME TÉCNICO')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
-        });
-      }
+      // Ensure any cover page wrapper or cover page boxes are completely removed
+      sectionsDiv.querySelectorAll('.cover-page-wrapper').forEach(el => el.remove());
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
