@@ -2343,6 +2343,7 @@ ${cleanedBase64}`);
       translatedXML = translatedXML
         .replace(/(<w:t[^>]*>[^<]*?\bde)(<\/w:t>)/gi, '$1 $2')
         .replace(/de\s\s+<\/w:t>/gi, 'de </w:t>')
+        .replace(/\bde(?=[A-ZÁÉÍÓÚÑ])/g, 'de ')
         .replace(/Protección deCanalones/gi, 'Protección de Canalones')
         .replace(/Protección deHuecos/gi, 'Protección de Huecos')
         .replace(/Protección deZonas/gi, 'Protección de Zonas')
