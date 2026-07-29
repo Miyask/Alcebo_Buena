@@ -1934,8 +1934,16 @@ ${cleanedBase64}`);
           .replace(/\[YEAR\]/g, escapeXml(yearStr));
       };
 
-      // 3. Local variables and drawing XML generator
-      let drawingIdCounter = 1000;
+      // 3. Parse existing docPr IDs from template to guarantee unique drawing IDs in Word
+      const existingDocPrIds: number[] = [];
+      const docPrIdRegex = /<wp:docPr[^>]*id="(\d+)"/g;
+      let dMatch: RegExpExecArray | null;
+      while ((dMatch = docPrIdRegex.exec(docXml)) !== null) {
+        existingDocPrIds.push(parseInt(dMatch[1], 10));
+      }
+      const maxDocPrId = existingDocPrIds.length > 0 ? Math.max(...existingDocPrIds) : 1000;
+      let drawingIdCounter = Math.max(5000, maxDocPrId + 100);
+
       const createDrawingMLXml = (rId: string, widthPt: number, heightPt: number, name: string) => {
         const docPrId = ++drawingIdCounter;
         const cx = Math.round(widthPt * 12700);
