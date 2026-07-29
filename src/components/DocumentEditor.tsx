@@ -2302,7 +2302,25 @@ ${cleanedBase64}`);
       let coverXml = pCloseBeforeContenido !== -1 ? docXml.substring(0, pCloseBeforeContenido) : '';
       if (coverXml) {
         coverXml = applyPlaceholders(coverXml);
+
+        // Clean floating "presupuesto" text nodes from body text paragraphs in coverXml
+        coverXml = coverXml.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
+
+        // Clear duplicate portada text nodes outside the main cover shape (pos > 30000)
+        const pos30k = Math.min(30000, coverXml.length);
+        let before30k = coverXml.substring(0, pos30k);
+        let after30k = coverXml.substring(pos30k);
+
+        after30k = after30k
+          .replace(/<w:t[^>]*>\s*Informe Técnico\s*<\/w:t>/gi, '<w:t></w:t>')
+          .replace(/<w:t[^>]*>\s*Presupuesto para\s*<\/w:t>/gi, '<w:t></w:t>')
+          .replace(/<w:t[^>]*>\s*PRESUPUESTO\s*<\/w:t>/gi, '<w:t></w:t>');
+
+        coverXml = before30k + after30k;
       }
+
+      // Also clean any floating "presupuesto" text nodes from translatedXML
+      translatedXML = translatedXML.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
 
       // Preserve header2.xml / footer files if present
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
