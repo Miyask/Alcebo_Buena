@@ -694,25 +694,37 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     };
   }, []);
 
-  // Synchronize editorHtml with the DOM only when they differ (avoids React rebuilding innerHTML on keystrokes, which resets cursor and scroll position)
+  // Track saved cursor range to preserve exact user cursor position when clicking image upload button
+  const savedRangeRef = useRef<Range | null>(null);
+
+  const saveCursorPosition = () => {
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && editorRef.current && editorRef.current.contains(sel.anchorNode)) {
+        savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    } catch (e) {
+      // Ignore range clone errors
+    }
+  };
+
+  // Synchronize editorHtml with DOM initial load without destructive re-render cycles
+  const isInitialLoadedRef = useRef(false);
   useEffect(() => {
-    if (editorRef.current) {
-      if (editorRef.current.innerHTML !== editorHtml) {
+    if (editorRef.current && editorHtml) {
+      if (!isInitialLoadedRef.current || editorRef.current.children.length === 0) {
         editorRef.current.innerHTML = editorHtml;
+        isInitialLoadedRef.current = true;
         
-        // Populate dynamic blocks immediately on DOM injection
         const desPlagaEl = editorRef.current.querySelector('.des-plaga-block');
-        if (desPlagaEl) {
+        if (desPlagaEl && (!desPlagaEl.innerHTML || desPlagaEl.innerHTML.trim() === '')) {
           desPlagaEl.innerHTML = getBirdsHtml(selectedBirds);
         }
         
         const sistemasEl = editorRef.current.querySelector('.sistemas-block');
-        if (sistemasEl) {
+        if (sistemasEl && (!sistemasEl.innerHTML || sistemasEl.innerHTML.trim() === '')) {
           sistemasEl.innerHTML = wrapImagesInEditor(getSystemsHtml(selectedSystems));
         }
-
-        // Keep editorHtml state in sync with the populated DOM
-        setEditorHtml(editorRef.current.innerHTML);
       }
     }
   }, [editorHtml]);
@@ -767,54 +779,84 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     return div;
   };
 
-  // Insert image at current cursor selection or append as block
-  // Insert image at current cursor selection or append as block
+  // Insert image at current cursor selection or saved cursor position
   const insertImageAtCursor = (base64Url: string, filename: string) => {
     const imgId = 'img_' + Date.now() + Math.floor(Math.random() * 1000);
-    const selection = window.getSelection();
     let inserted = false;
     
-    // Attempt selection-based cursor insertion
-    if (selection && selection.rangeCount > 0 && editorRef.current?.contains(selection.anchorNode)) {
+    // First, try saved range if user clicked somewhere in editor before clicking file upload button
+    let rangeToUse: Range | null = null;
+    const sel = window.getSelection();
+    
+    if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+      rangeToUse = sel.getRangeAt(0);
+    } else if (savedRangeRef.current && editorRef.current?.contains(savedRangeRef.current.startContainer)) {
+      rangeToUse = savedRangeRef.current;
+    }
+
+    // Do NOT insert in cover page wrapper!
+    if (rangeToUse) {
+      let node: Node | null = rangeToUse.startContainer;
+      while (node && node !== editorRef.current) {
+        if (node instanceof HTMLElement && node.classList.contains('cover-page-wrapper')) {
+          rangeToUse = null; // Don't insert inside cover page wrapper
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+
+    if (rangeToUse) {
       try {
-        const range = selection.getRangeAt(0);
         const div = createImageBlock(base64Url, filename, imgId);
+        rangeToUse.deleteContents();
+        rangeToUse.insertNode(div);
         
-        range.deleteContents();
-        range.insertNode(div);
-        
-        // Position text cursor after the newly inserted block
         try {
-          range.setStartAfter(div);
-          range.setEndAfter(div);
-          selection.removeAllRanges();
-          selection.addRange(range);
+          rangeToUse.setStartAfter(div);
+          rangeToUse.setEndAfter(div);
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(rangeToUse);
+          }
         } catch (selErr) {
-          console.warn('Could not position cursor after inserted image block:', selErr);
+          // Cursor placement after block
         }
         
         inserted = true;
       } catch (domErr) {
-        console.warn('Failed selection insertion, falling back to append:', domErr);
+        console.warn('Failed range insertion:', domErr);
       }
     }
-    
-    // Fallback: append at the end of the editor flow if cursor insertion was not possible/failed
-    if (!inserted) {
-      if (editorRef.current) {
-        try {
-          const div = createImageBlock(base64Url, filename, imgId);
-          editorRef.current.appendChild(div);
-          showToast('¡Foto añadida al final del documento!');
+
+    // Fallback: Append inside Section 4 / Section 3 / Body, NEVER inside cover page wrapper
+    if (!inserted && editorRef.current) {
+      try {
+        const div = createImageBlock(base64Url, filename, imgId);
+        const sectionHeading = Array.from(editorRef.current.querySelectorAll('p, h1, h2, h3, div')).find(el => {
+          const txt = (el.textContent || '').toUpperCase();
+          return txt.includes('4.- LA ELECCIÓN DEL SISTEMA') ||
+                 txt.includes('3.- DAÑOS Y FOTOS') ||
+                 txt.includes('DAÑOS Y DEFICIENCIAS') ||
+                 txt.includes('1.-  CONTROL DE AVES');
+        });
+
+        if (sectionHeading && sectionHeading.parentNode) {
+          sectionHeading.parentNode.insertBefore(div, sectionHeading.nextSibling);
+          showToast('¡Foto añadida en la sección técnica del documento!');
           inserted = true;
-        } catch (appendErr) {
-          console.error('Fatal: image block append failed:', appendErr);
+        } else {
+          editorRef.current.appendChild(div);
+          showToast('¡Foto añadida al documento!');
+          inserted = true;
         }
+      } catch (appendErr) {
+        console.error('Fatal: image block append failed:', appendErr);
       }
-    } else {
+    } else if (inserted) {
       showToast('¡Foto técnica insertada en la posición del cursor!');
     }
-    
+
     if (inserted && editorRef.current) {
       setEditorHtml(editorRef.current.innerHTML);
     }
@@ -2487,7 +2529,11 @@ ${cleanedBase64}`);
           
           {/* Insert image button */}
           <button
-            onClick={() => imageUploadRef.current?.click()}
+            onMouseDown={saveCursorPosition}
+            onClick={() => {
+              saveCursorPosition();
+              imageUploadRef.current?.click();
+            }}
             className="p-2 bg-[#009FE3]/10 hover:bg-[#009FE3]/20 text-[#009FE3] font-bold rounded-lg text-xs leading-none cursor-pointer flex items-center justify-center gap-1.5"
             title="Insertar Foto en Cursor"
           >
@@ -2534,6 +2580,10 @@ ${cleanedBase64}`);
                 contentEditable
                 suppressContentEditableWarning
                 onInput={handleEditorInput}
+                onKeyUp={saveCursorPosition}
+                onMouseUp={saveCursorPosition}
+                onClick={saveCursorPosition}
+                onBlur={saveCursorPosition}
                 className="outline-none min-h-[1050px] text-justify font-sans text-xs text-slate-800 space-y-6 editor-content-area"
               />
             </div>
