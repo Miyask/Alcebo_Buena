@@ -2308,6 +2308,10 @@ ${cleanedBase64}`);
         .replace(/Protección deCanalones/gi, 'Protección de Canalones')
         .replace(/Protección deHuecos/gi, 'Protección de Huecos')
         .replace(/Protección deZonas/gi, 'Protección de Zonas')
+        .replace(/deCanalones/gi, 'de Canalones')
+        .replace(/deHuecos/gi, 'de Huecos')
+        .replace(/deZonas/gi, 'de Zonas')
+        .replace(/maquinas/gi, 'máquinas')
         .replace(/la prolongada persistencia en el tiempo\s+el efecto mínimo estético/gi, '')
         .replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
 
