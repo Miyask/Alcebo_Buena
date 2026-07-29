@@ -1365,7 +1365,7 @@ Transcripción:
   };
 
   // Export high-fidelity MHTML Word document (.doc) directly on the client-side
-  const handleExportMhtml = () => {
+  const handleExportMhtml = async () => {
     if (!editorRef.current) return;
 
     const htmlContent = editorRef.current.innerHTML;
@@ -1402,8 +1402,50 @@ Transcripción:
       container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
     });
 
+    // Helper to convert any image element to a base64 data URI
+    const ensureBase64DataUri = async (imgEl: HTMLImageElement): Promise<string> => {
+      const src = imgEl.getAttribute('src') || '';
+      if (src.startsWith('data:image/')) return src;
+      
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgEl.naturalWidth || 600;
+        canvas.height = imgEl.naturalHeight || 300;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(imgEl, 0, 0);
+          const uri = canvas.toDataURL('image/png');
+          if (uri.startsWith('data:image/')) return uri;
+        }
+      } catch (e) {
+        console.warn('Canvas toDataURL failed:', e);
+      }
+
+      if (src) {
+        try {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          return await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string || src);
+            reader.onerror = () => resolve(src);
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn('Fetch image blob failed:', e);
+        }
+      }
+      return src;
+    };
+
     const imagesInDoc = tempDiv.querySelectorAll('img');
-    imagesInDoc.forEach(img => {
+    for (let i = 0; i < imagesInDoc.length; i++) {
+      const img = imagesInDoc[i] as HTMLImageElement;
+      const base64Uri = await ensureBase64DataUri(img);
+      if (base64Uri.startsWith('data:image/')) {
+        img.setAttribute('src', base64Uri);
+      }
+
       const src = img.getAttribute('src') || '';
       const alt = img.getAttribute('alt') || '';
       const imgId = img.getAttribute('data-img-id') || '';
@@ -1412,9 +1454,8 @@ Transcripción:
       let pxWidth = isLogo ? 620 : 280;
       let aspectRatio = 0.75;
 
-      const imgEl = img as HTMLImageElement;
-      let naturalWidth = imgEl.naturalWidth;
-      let naturalHeight = imgEl.naturalHeight;
+      let naturalWidth = img.naturalWidth;
+      let naturalHeight = img.naturalHeight;
 
       if (!naturalWidth || !naturalHeight) {
         const originalImg = editorRef.current?.querySelector(`img[src="${src}"], img[alt="${alt}"], img[data-img-id="${imgId}"]`) as HTMLImageElement;
@@ -1456,7 +1497,7 @@ Transcripción:
       if (isLogo) {
         img.style.border = 'none';
       }
-    });
+    }
 
     // Process images and page breaks for high-fidelity MHTML Word document
     const boundary = '----=_NextPart_000_0000_01D1';
@@ -1495,7 +1536,7 @@ ${cleanedBase64}`);
       return `<img${beforeSrc}src="${location}"${afterSrc}>`;
     });
 
-    // Build full high-fidelity styled HTML document
+    // Build full high-fidelity styled HTML document with vertical watermark text shape in MSO header
     const fullHtml = `
       <!DOCTYPE html>
       <html>
@@ -1614,6 +1655,35 @@ ${cleanedBase64}`);
       <body>
         <!-- Header & Footer MSO Definitions -->
         <div style="mso-element: header;" id="h1">
+          <!--[if gte mso 9]>
+          <v:shape id="WatermarkShape" type="#_x0000_t202" style="position:absolute;left:0;text-align:left;margin-left:420pt;margin-top:110pt;width:120pt;height:400pt;z-index:251652608;v-text-anchor:top" filled="f" stroked="f">
+            <v:textbox style="layout-flow:vertical;mso-layout-flow-alt:bottom-to-top">
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:rPr>
+                      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+                      <w:b/>
+                      <w:color w:val="EAEAEA"/>
+                      <w:sz w:val="108"/>
+                      <w:szCs w:val="108"/>
+                    </w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr>
+                      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+                      <w:b/>
+                      <w:color w:val="EAEAEA"/>
+                      <w:sz w:val="108"/>
+                      <w:szCs w:val="108"/>
+                    </w:rPr>
+                    <w:t>presupuesto</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </v:textbox>
+          </v:shape>
+          <![endif]-->
           <table style="width: 100%; border-bottom: 1px solid #009FE3; padding-bottom: 4px; font-size: 8pt; font-family: 'Calibri', sans-serif; color: #555;">
             <tr>
               <td style="border: none; text-align: left; vertical-align: middle;">
