@@ -2293,26 +2293,14 @@ ${cleanedBase64}`);
         zip.file('word/header1.xml', header1Xml);
       }
 
-      // 6. Extract Cover Page (Page 1 Portada) from EjemploBueno.docx safely up to closing </w:p> before CONTENIDO
-      const contenidoPos = docXml.indexOf('CONTENIDO');
-      const pCloseBeforeContenido = contenidoPos !== -1 ? docXml.lastIndexOf('</w:p>', contenidoPos) + 6 : -1;
-      let coverXml = pCloseBeforeContenido !== -1 ? docXml.substring(0, pCloseBeforeContenido) : '';
+      // 6. Extract Cover Page (Page 1 Portada) from EjemploBueno.docx strictly ending at Page 1 (before PRESUPUESTO pos 40975)
+      const p31Pos = docXml.indexOf('PRESUPUESTO');
+      const p30ClosePos = p31Pos !== -1 ? docXml.lastIndexOf('</w:p>', p31Pos) + 6 : -1;
+      let coverXml = p30ClosePos !== -1 ? docXml.substring(0, p30ClosePos) : '';
       if (coverXml) {
         coverXml = applyPlaceholders(coverXml);
-
-        // Remove standalone v:shape elements at pos > 24000 that duplicate the portada on page 2
-        const pos24k = Math.min(24000, coverXml.length);
-        let before24k = coverXml.substring(0, pos24k);
-        let after24k = coverXml.substring(pos24k);
-
-        after24k = after24k
-          .replace(/<v:shape\b[\s\S]*?<\/v:shape>/gi, '')
-          .replace(/<w:t[^>]*>\s*Informe Técnico\s*<\/w:t>/gi, '<w:t></w:t>')
-          .replace(/<w:t[^>]*>\s*Presupuesto para\s*<\/w:t>/gi, '<w:t></w:t>')
-          .replace(/<w:t[^>]*>\s*PRESUPUESTO\s*<\/w:t>/gi, '<w:t></w:t>');
-
-        coverXml = before24k + after24k;
-        coverXml = coverXml.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
+        // Append a clean page break at the end of Page 1 Portada so Page 2 starts cleanly
+        coverXml += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
       }
 
       // Clean missing spaces in deCanalones and clean duplicate text in translatedXML
