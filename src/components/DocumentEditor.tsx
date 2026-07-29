@@ -2270,8 +2270,8 @@ ${cleanedBase64}`);
         '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
       );
 
-      // Section properties from EjemploBueno.docx (references header1.xml rId22 and footer1.xml rId23 for page numbers)
-      const sectPrXml = '<w:sectPr w:rsidR="00F4195B" w:rsidSect="00577536"><w:headerReference w:type="default" r:id="rId22"/><w:footerReference w:type="default" r:id="rId23"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';
+      // Section properties from EjemploBueno.docx (references header1.xml rId22 for vertical watermark)
+      const sectPrXml = '<w:sectPr w:rsidR="00F4195B" w:rsidSect="00577536"><w:headerReference w:type="default" r:id="rId22"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';
 
       // Assemble complete document XML: Cover Page (Portada) + Dynamic Editor Content + Section Properties (Watermark & Page Numbers)
       const finalDocXml = (coverXml || '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>') + translatedXML + sectPrXml + '</w:body></w:document>';
