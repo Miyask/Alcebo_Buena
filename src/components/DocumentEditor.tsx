@@ -2238,33 +2238,47 @@ ${cleanedBase64}`);
         zip.file('word/header1.xml', header1Xml);
       }
 
-      // Preserve header2.xml if present
+      // 6. Extract Cover Page (Page 1 Portada) from EjemploBueno.docx
+      const contenidoPos = docXml.indexOf('CONTENIDO');
+      const cutIndex = contenidoPos !== -1 ? docXml.lastIndexOf('<w:p', contenidoPos) : -1;
+      let coverXml = cutIndex !== -1 ? docXml.substring(0, cutIndex) : '';
+      if (coverXml) {
+        coverXml = applyPlaceholders(coverXml);
+      }
+
+      // Preserve header2.xml / footer files if present
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
         header2Xml = applyPlaceholders(header2Xml);
         zip.file('word/header2.xml', header2Xml);
       }
+      let footer1Xml = zip.file('word/footer1.xml')?.asText() || '';
+      if (footer1Xml) {
+        footer1Xml = applyPlaceholders(footer1Xml);
+        zip.file('word/footer1.xml', footer1Xml);
+      }
+      let footer2Xml = zip.file('word/footer2.xml')?.asText() || '';
+      if (footer2Xml) {
+        footer2Xml = applyPlaceholders(footer2Xml);
+        zip.file('word/footer2.xml', footer2Xml);
+      }
 
-      // Ensure a page break exists before Presupuesto section in translatedXML
+      // Clean up consecutive page breaks and ensure exactly one page break before Presupuesto section
+      translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
       translatedXML = translatedXML.replace(
-        /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?-?\s*PRESUPUESTO|5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>)/i,
+        /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)*(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?-?\s*PRESUPUESTO|5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO))/i,
         '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
       );
 
-      // Extract opening w:document / w:body tag from EjemploBueno.docx
-      const bodyTagEnd = docXml.indexOf('<w:body>') + 8;
-      const docXmlOpening = bodyTagEnd > 7 ? docXml.substring(0, bodyTagEnd) : 
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 w15 wp14"><w:body>';
-
-      // Extract sectPr tag from EjemploBueno.docx (references header1.xml rId22)
+      // Extract sectPr tag from EjemploBueno.docx (references header1.xml rId22 and footer1.xml rId23 for page numbers)
       const lastSectPrPos = docXml.lastIndexOf('<w:sectPr');
       const lastSectPrEnd = lastSectPrPos !== -1 ? docXml.indexOf('</w:sectPr>', lastSectPrPos) : -1;
       const sectPrXml = (lastSectPrPos !== -1 && lastSectPrEnd !== -1)
         ? docXml.substring(lastSectPrPos, lastSectPrEnd + 11)
-        : '<w:sectPr><w:headerReference w:type="default" r:id="rId22"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
+        : '<w:sectPr><w:headerReference w:type="default" r:id="rId22"/><w:footerReference w:type="default" r:id="rId23"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
 
-      // Assemble complete document XML: EjemploBueno opening + Live dynamic editor content (transcript, birds, images, budget) + EjemploBueno sectPr
-      const finalDocXml = docXmlOpening + translatedXML + sectPrXml + '</w:body></w:document>';
+      // Assemble complete document XML: Cover Page (Portada) + Dynamic Editor Content + Section Properties (Watermark & Page Numbers)
+      const finalDocXml = (coverXml || '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>') + translatedXML + sectPrXml + '</w:body></w:document>';
 
       zip.file('word/document.xml', finalDocXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
