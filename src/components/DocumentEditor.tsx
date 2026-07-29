@@ -605,6 +605,28 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/Se propone la protección mediante sistema de Red Network anti-palomas/gi, `Se propone la protección mediante <mark class="sistemas-nombres-field" style="background-color: #fef08a; padding: 1px 3px; border-radius: 2px;">Red Network anti-palomas</mark>`)
         .replace(/\[DESCRIPCION_PLAGA\]/g, `<div class="des-plaga-block">${getBirdsHtml(selectedBirds)}</div>`)
         .replace(/\[DESCRIPCIONES_SISTEMAS\]/g, `<div class="sistemas-block">${getSystemsHtml(selectedSystems)}</div>`)
+        .replace(/<div class="cover-page-wrapper">[\s\S]*?<p><strong>CONTENIDO<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
+          <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
+            <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
+          </div>
+          <div style="margin-bottom: 25px;">
+            <div style="border: 2px solid #000; padding: 6px 30px; display: inline-block; background: #fff;">
+              <h1 style="font-size: 20pt; font-weight: bold; margin: 0; text-decoration: underline; color: #000;">Informe Técnico</h1>
+            </div>
+          </div>
+          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; position: relative; max-width: 520px; margin: 0 auto; box-sizing: border-box; min-height: 140px; background: #fff;">
+            <div style="font-size: 11pt; font-weight: bold; margin-bottom: 10px; color: #000;">Presupuesto para</div>
+            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
+              <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
+              <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
+            </div>
+            <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
+              Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
+            </div>
+          </div>
+        </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
         .replace(/<p><strong>presupuesto<\/strong><\/p>[\s\S]*?<p><strong>CONTENIDO<\/strong><\/p>/i, `<div class="cover-page-wrapper" style="text-align: center; padding: 20px 0; font-family: 'Verdana', sans-serif;">
           <div style="border: 2px solid #000; padding: 25px; margin-bottom: 25px; display: inline-block; width: 100%; max-width: 520px; box-sizing: border-box; background: #fff;">
             <img src="${logoUrl}" alt="Alcebo Control de Aves" style="max-width: 320px; height: auto;" />
