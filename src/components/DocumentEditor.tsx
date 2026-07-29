@@ -522,10 +522,10 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       // Patch old drafts that don't have page-break class
       if (!docHtml.includes('page-break')) {
         docHtml = docHtml
-          .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
+          .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
           .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
           .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<hr class="page-break" /><p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
       }
 
       setEditorHtml(docHtml);
@@ -652,7 +652,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             </div>
           </div>
         </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
-        .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
+        .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
         .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
@@ -1390,7 +1390,7 @@ Transcripción:
             .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
             .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
             .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
-            .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
+            .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
             .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
             .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
             .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
