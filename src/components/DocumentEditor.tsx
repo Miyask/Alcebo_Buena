@@ -2181,59 +2181,82 @@ ${cleanedBase64}`);
           }
 
           if (tagName === 'img') {
-            const src = el.getAttribute('src') || '';
-            if (src.startsWith('data:')) {
-              const currentNum = nextRelIdNum++;
-              const bRelId = `rId${currentNum}`;
-              const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
-              const ext = mime.includes('png') ? 'png' : 'jpeg';
-              const base64Part = src.split(',')[1] || src;
-              const cleaned = cleanBase64(base64Part);
-              
-              const bTargetPath = `media/visit_photo_${currentNum}.${ext}`;
-              zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
-              
-              relsXml = relsXml.replace(
-                '</Relationships>',
-                `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
-              );
-              
-              let pxWidth = 280;
-              const styleWidth = el.style.width || el.getAttribute('width') || '';
-              if (styleWidth && !styleWidth.includes('%')) {
-                const parsed = parseInt(styleWidth);
-                if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
-              }
-              
-              let widthPt = pxWidth * 0.75;
-              if (widthPt > 320) {
-                widthPt = 320;
-              }
-              if (widthPt < 80) {
-                widthPt = 240;
-              }
-
-              let aspectRatio = 0.75;
-              const imgEl = el as HTMLImageElement;
-              const naturalWidth = imgEl.naturalWidth;
-              const naturalHeight = imgEl.naturalHeight;
-              if (naturalWidth && naturalHeight && naturalWidth > 0) {
-                aspectRatio = naturalHeight / naturalWidth;
-              } else {
-                const attrHeight = el.getAttribute('height');
-                const attrWidth = el.getAttribute('width');
-                if (attrHeight && attrWidth) {
-                  const h = parseInt(attrHeight);
-                  const w = parseInt(attrWidth);
-                  if (w > 0 && h > 0) aspectRatio = h / w;
+            let src = el.getAttribute('src') || '';
+            const imgEl = el as HTMLImageElement;
+            
+            // If src is not a data: URI, try to convert it to data: URI from DOM element via canvas
+            if (!src.startsWith('data:')) {
+              try {
+                if (imgEl.naturalWidth && imgEl.naturalHeight && imgEl.naturalWidth > 0) {
+                  const cvs = document.createElement('canvas');
+                  cvs.width = imgEl.naturalWidth;
+                  cvs.height = imgEl.naturalHeight;
+                  const ctx = cvs.getContext('2d');
+                  if (ctx) {
+                    ctx.drawImage(imgEl, 0, 0);
+                    src = cvs.toDataURL('image/png');
+                  }
                 }
+              } catch (e) {
+                console.warn('Canvas conversion for img failed:', e);
               }
-              if (aspectRatio > 1.5) aspectRatio = 1.5;
-              if (aspectRatio < 0.3) aspectRatio = 0.3;
+            }
 
-              const heightPt = widthPt * aspectRatio;
-              
-              return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+            if (src.startsWith('data:')) {
+              try {
+                const currentNum = nextRelIdNum++;
+                const bRelId = `rId${currentNum}`;
+                const mime = src.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
+                const ext = mime.includes('png') ? 'png' : 'jpeg';
+                const base64Part = src.split(',')[1] || src;
+                const cleaned = cleanBase64(base64Part);
+                
+                const bTargetPath = `media/visit_photo_${currentNum}.${ext}`;
+                zip.file(`word/${bTargetPath}`, base64ToUint8Array(cleaned));
+                
+                relsXml = relsXml.replace(
+                  '</Relationships>',
+                  `<Relationship Id="${bRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${bTargetPath}"/></Relationships>`
+                );
+                
+                let pxWidth = 280;
+                const styleWidth = el.style.width || el.getAttribute('width') || '';
+                if (styleWidth && !styleWidth.includes('%')) {
+                  const parsed = parseInt(styleWidth);
+                  if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
+                }
+                
+                let widthPt = pxWidth * 0.75;
+                if (widthPt > 320) {
+                  widthPt = 320;
+                }
+                if (widthPt < 80) {
+                  widthPt = 240;
+                }
+
+                let aspectRatio = 0.75;
+                const naturalWidth = imgEl.naturalWidth;
+                const naturalHeight = imgEl.naturalHeight;
+                if (naturalWidth && naturalHeight && naturalWidth > 0) {
+                  aspectRatio = naturalHeight / naturalWidth;
+                } else {
+                  const attrHeight = el.getAttribute('height');
+                  const attrWidth = el.getAttribute('width');
+                  if (attrHeight && attrWidth) {
+                    const h = parseInt(attrHeight);
+                    const w = parseInt(attrWidth);
+                    if (w > 0 && h > 0) aspectRatio = h / w;
+                  }
+                }
+                if (aspectRatio > 1.5) aspectRatio = 1.5;
+                if (aspectRatio < 0.3) aspectRatio = 0.3;
+
+                const heightPt = widthPt * aspectRatio;
+                
+                return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+              } catch (imgErr) {
+                console.error('Error processing img element for Word export:', imgErr);
+              }
             }
             return '';
           }
@@ -2315,6 +2338,8 @@ ${cleanedBase64}`);
 
       // Clean missing spaces in deCanalones and clean duplicate text in translatedXML
       translatedXML = translatedXML
+        .replace(/(<w:t[^>]*>[^<]*?\bde)(<\/w:t>)/gi, '$1 $2')
+        .replace(/de\s\s+<\/w:t>/gi, 'de </w:t>')
         .replace(/Protección deCanalones/gi, 'Protección de Canalones')
         .replace(/Protección deHuecos/gi, 'Protección de Huecos')
         .replace(/Protección deZonas/gi, 'Protección de Zonas')
@@ -2376,9 +2401,11 @@ ${cleanedBase64}`);
 
       // Remove any leading page breaks from translatedXML to prevent blank empty page at start of body
       translatedXML = translatedXML.replace(/^(?:\s*<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>)+/i, '');
+      // Deduplicate consecutive page breaks anywhere in translatedXML (collapses 2+ into 1)
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+      // Collapse multiple page break paragraphs right before PRESUPUESTO heading into exactly 1
       translatedXML = translatedXML.replace(
-        /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)*(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?-?\s*PRESUPUESTO|5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO))/i,
+        /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)+(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?\s*[\.\-]?\s*PRESUPUESTO|PRESUPUESTO\s*Y\s*GARANT))/gi,
         '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
       );
 
