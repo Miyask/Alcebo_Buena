@@ -2329,21 +2329,21 @@ ${cleanedBase64}`);
             </button>
             
             <button
-              onClick={handleExportDocx}
+              onClick={handleExportMhtml}
               className="flex-1 sm:flex-initial bg-[#009FE3] hover:bg-[#006491] text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#009fe3]/15 cursor-pointer active:scale-95"
-              title="Descarga el presupuesto oficial en la plantilla corporativa de Word Ppo mail 2022 (1).doc 100% idéntica"
+              title="Descarga el presupuesto oficial de la aplicación con todos los datos, fotos y transcripción"
             >
               <span className="material-symbols-outlined text-sm">download</span>
               Descargar Presupuesto Word
             </button>
 
             <button
-              onClick={handleExportDocx}
+              onClick={handleExportMhtml}
               className="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
-              title="Descarga la plantilla corporativa Ppo-mail-2022.docx"
+              title="Descarga el presupuesto completo de la aplicación (.doc)"
             >
               <span className="material-symbols-outlined text-sm">description</span>
-              Descargar (.docx)
+              Descargar (.doc)
             </button>
 
             <button
