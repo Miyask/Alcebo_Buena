@@ -2279,7 +2279,7 @@ ${cleanedBase64}`);
         zip.file('word/footer2.xml', footer2Xml);
       }
 
-      // Inject clean footer1.xml into zip for page numbers (Página X)
+      // Inject clean footer1.xml into zip for page numbers (ONLY numbers: 2, 3, 4...)
       const footer1Content = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:p>
@@ -2291,14 +2291,6 @@ ${cleanedBase64}`);
         <w:color w:val="666666"/>
       </w:rPr>
     </w:pPr>
-    <w:r>
-      <w:rPr>
-        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-        <w:sz w:val="18"/>
-        <w:color w:val="666666"/>
-      </w:rPr>
-      <w:t xml:space="preserve">Página </w:t>
-    </w:r>
     <w:fldSimple w:instr="PAGE"/>
   </w:p>
 </w:ftr>`;
