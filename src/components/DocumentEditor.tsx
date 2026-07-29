@@ -2399,12 +2399,12 @@ ${cleanedBase64}`);
             </button>
             
             <button
-              onClick={handleExportMhtml}
+              onClick={handleExportDocx}
               className="flex-1 sm:flex-initial bg-[#009FE3] hover:bg-[#006491] text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#009fe3]/15 cursor-pointer active:scale-95"
-              title="Descarga el presupuesto oficial de la aplicación con todos los datos, fotos y transcripción"
+              title="Descarga la plantilla corporativa oficial Ppo_mail_2022_1.docx rellena con los datos de la aplicación"
             >
               <span className="material-symbols-outlined text-sm">download</span>
-              Descargar Presupuesto Word
+              Descargar Presupuesto Word (.docx)
             </button>
 
             <button
