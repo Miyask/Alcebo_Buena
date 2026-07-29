@@ -1899,7 +1899,7 @@ ${cleanedBase64}`);
       }
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
 
-      // Replace metadata placeholders in the template (such as Cover Page)
+      // Replace metadata placeholders in the template
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
       let today = quoteDate ? new Date(quoteDate) : new Date();
       if (isNaN(today.getTime())) today = new Date();
@@ -1911,30 +1911,28 @@ ${cleanedBase64}`);
       const monthStr = monthNames[today.getMonth()];
       const yearStr = today.getFullYear().toString().substring(2);
 
-      docXml = docXml
-        .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
-        // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
-        .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
-        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
-        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
-        .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
-        .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
-        // Fallback replacements
-        .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
-        .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
-        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(clientAddressInput))
-        .replace(/\[POSTAL_CODE\]/g, '28001')
-        .replace(/\[POSTAL_CODE_PREFIX\]/g, '280')
-        .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
-        .replace(/\[DAY\]/g, escapeXml(dayStr))
-        .replace(/\[MONTH\]/g, escapeXml(monthStr))
-        .replace(/\[YEAR\]/g, escapeXml(yearStr))
-        .replace(/\[PLAGA\]/g, escapeXml(selectedBird))
-        .replace(/\[PRECIO_1\]/g, escapeXml(quote.price1 || price1))
-        .replace(/\[PRECIO_2\]/g, escapeXml(quote.price2 || price2))
-        .replace(/\[PRECIO_3\]/g, escapeXml(quote.price3 || price3))
-        .replace(/\[TECNICO\]/g, 'Técnico Oficial Alcebo')
-        .replace(/\[TELEFONO\]/g, '900 123 456');
+      const applyPlaceholders = (xml: string): string => {
+        if (!xml) return '';
+        const cleanClientName = clientNameInput.trim() ? clientNameInput.toUpperCase() : 'COMUNIDAD DE PROPIETARIOS';
+        const cleanClientAddress = clientAddressInput.trim() ? clientAddressInput : 'Dirección no especificada';
+        const cleanPostalCode = '28001';
+
+        return xml
+          .replace(/Com\.\s*Prop\.\s*(?:<[^>]+>)*\s*(?:@{8,11}|COMUNIDAD DE PROPIETARIOS[^<]*)/gi, `Com. Prop. ${escapeXml(cleanClientName)}`)
+          .replace(/C\/\s*(?:<[^>]+>)*\s*(?:@{8,11}|Calle[^\n<]*|Calle Guadalajara 12, Baraquies)/gi, `C/ ${escapeXml(cleanClientAddress)}`)
+          .replace(/28@{4}|28001/g, escapeXml(cleanPostalCode))
+          .replace(/(?:Ref:|Ref-)\s*(?:(?!<\/w:p>)[\s\S])*?(?:@{8,11}|q-\d+|Ref-[A-Z0-9-]+)/gi, `Ref: ${escapeXml(finalRefCode)}`)
+          .replace(/@{11}/g, escapeXml(finalRefCode))
+          .replace(/@{8}/g, escapeXml(cleanClientName))
+          .replace(/@{4}/g, escapeXml(cleanPostalCode))
+          .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
+          .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
+          .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
+          .replace(/\[POSTAL_CODE\]/g, '28001')
+          .replace(/\[DAY\]/g, escapeXml(dayStr))
+          .replace(/\[MONTH\]/g, escapeXml(monthStr))
+          .replace(/\[YEAR\]/g, escapeXml(yearStr));
+      };
 
       // 3. Local variables and drawing XML generator
       let drawingIdCounter = 1000;
