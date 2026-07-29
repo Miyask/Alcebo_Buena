@@ -1803,6 +1803,16 @@ ${cleanedBase64}`);
         const el = child as HTMLElement;
         const text = (el.textContent || '').trim().toUpperCase();
 
+        // Skip cover page elements so Page 2 does NOT duplicate the portada
+        if (
+          el.classList.contains('cover-page-wrapper') ||
+          el.querySelector('.cover-page-wrapper') ||
+          text.includes('INFORME TÉCNICO') ||
+          text.includes('PRESUPUESTO PARA')
+        ) {
+          return;
+        }
+
         if (!bodyStarted) {
           if (text.includes('CONTENIDO') || text.startsWith('1.-') || text.startsWith('1. -') || text.includes('CONTROL DE AVES URBANAS')) {
             bodyStarted = true;
@@ -1810,9 +1820,7 @@ ${cleanedBase64}`);
         }
 
         if (bodyStarted) {
-          if (!el.classList.contains('cover-page-wrapper')) {
-            sectionsDiv.appendChild(child.cloneNode(true));
-          }
+          sectionsDiv.appendChild(child.cloneNode(true));
         }
       });
 
@@ -2271,15 +2279,56 @@ ${cleanedBase64}`);
         zip.file('word/footer2.xml', footer2Xml);
       }
 
-      // Clean up consecutive page breaks and ensure exactly one page break before Presupuesto section
+      // Inject clean footer1.xml into zip for page numbers (Página X)
+      const footer1Content = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p>
+    <w:pPr>
+      <w:jc w:val="right"/>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="18"/>
+        <w:color w:val="666666"/>
+      </w:rPr>
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="18"/>
+        <w:color w:val="666666"/>
+      </w:rPr>
+      <w:t xml:space="preserve">Página </w:t>
+    </w:r>
+    <w:fldSimple w:instr="PAGE"/>
+  </w:p>
+</w:ftr>`;
+      zip.file('word/footer1.xml', footer1Content);
+
+      if (!relsXml.includes('rId99')) {
+        relsXml = relsXml.replace(
+          '</Relationships>',
+          '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>'
+        );
+      }
+
+      if (!contentTypesXml.includes('footer1.xml')) {
+        contentTypesXml = contentTypesXml.replace(
+          '</Types>',
+          '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>'
+        );
+        zip.file('[Content_Types].xml', contentTypesXml);
+      }
+
+      // Remove any leading page breaks from translatedXML to prevent blank empty page at start of body
+      translatedXML = translatedXML.replace(/^(?:\s*<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>)+/i, '');
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
       translatedXML = translatedXML.replace(
         /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)*(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?-?\s*PRESUPUESTO|5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO))/i,
         '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
       );
 
-      // Section properties from EjemploBueno.docx (references header1.xml rId22 for vertical watermark)
-      const sectPrXml = '<w:sectPr w:rsidR="00F4195B" w:rsidSect="00577536"><w:headerReference w:type="default" r:id="rId22"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';
+      // Section properties with titlePg: Page 1 (Portada) has NO top header line or footer number. Pages 2+ get watermark rId22 and page numbers rId99.
+      const sectPrXml = '<w:sectPr w:rsidR="00F4195B" w:rsidSect="00577536"><w:headerReference w:type="default" r:id="rId22"/><w:footerReference w:type="default" r:id="rId99"/><w:titlePg/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';
 
       // Assemble complete document XML: Cover Page (Portada) + Dynamic Editor Content + Section Properties (Watermark & Page Numbers)
       const finalDocXml = (coverXml || '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>') + translatedXML + sectPrXml + '</w:body></w:document>';
