@@ -2238,10 +2238,10 @@ ${cleanedBase64}`);
         zip.file('word/header1.xml', header1Xml);
       }
 
-      // 6. Extract Cover Page (Page 1 Portada) from EjemploBueno.docx safely up to first page break paragraph
-      const pageBreakPos = docXml.indexOf('w:type="page"');
-      const pEndAfterBreak = pageBreakPos !== -1 ? docXml.indexOf('</w:p>', pageBreakPos) + 6 : -1;
-      let coverXml = pEndAfterBreak !== -1 ? docXml.substring(0, pEndAfterBreak) : '';
+      // 6. Extract Cover Page (Page 1 Portada) from EjemploBueno.docx safely up to closing </w:p> before CONTENIDO
+      const contenidoPos = docXml.indexOf('CONTENIDO');
+      const pCloseBeforeContenido = contenidoPos !== -1 ? docXml.lastIndexOf('</w:p>', contenidoPos) + 6 : -1;
+      let coverXml = pCloseBeforeContenido !== -1 ? docXml.substring(0, pCloseBeforeContenido) : '';
       if (coverXml) {
         coverXml = applyPlaceholders(coverXml);
       }
