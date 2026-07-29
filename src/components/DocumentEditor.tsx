@@ -1856,23 +1856,33 @@ ${cleanedBase64}`);
         container.setAttribute('style', 'text-align: center; margin: 20px auto; display: block; max-width: 580px;');
       });
 
-      // Extract body sections starting strictly at CONTENIDO (discarding all HTML cover page elements before CONTENIDO)
+      // Extract body sections starting at CONTENIDO or Section 1 (discarding HTML cover elements)
       const sectionsDiv = document.createElement('div');
       const fullTempHtml = tempDiv.innerHTML;
-      const contenidoIdx = fullTempHtml.indexOf('CONTENIDO');
+      
+      let bodyStartIdx = -1;
+      const idxContenido = fullTempHtml.indexOf('CONTENIDO');
+      const idxSec1 = fullTempHtml.search(/1\s*[\.-]\s*CONTROL/i);
+      const idxControl = fullTempHtml.search(/CONTROL\s+DE\s+AVES/i);
 
-      let cleanBodyHtml = '';
-      if (contenidoIdx !== -1) {
-        const pStartBeforeContenido = fullTempHtml.lastIndexOf('<p', contenidoIdx);
-        cleanBodyHtml = pStartBeforeContenido !== -1 ? fullTempHtml.substring(pStartBeforeContenido) : fullTempHtml.substring(contenidoIdx);
-      } else {
-        cleanBodyHtml = fullTempHtml;
+      if (idxContenido !== -1) {
+        bodyStartIdx = fullTempHtml.lastIndexOf('<p', idxContenido);
+        if (bodyStartIdx === -1) bodyStartIdx = idxContenido;
+      } else if (idxSec1 !== -1) {
+        bodyStartIdx = fullTempHtml.lastIndexOf('<p', idxSec1);
+        if (bodyStartIdx === -1) bodyStartIdx = idxSec1;
+      } else if (idxControl !== -1) {
+        bodyStartIdx = fullTempHtml.lastIndexOf('<p', idxControl);
+        if (bodyStartIdx === -1) bodyStartIdx = idxControl;
       }
 
+      let cleanBodyHtml = bodyStartIdx !== -1 ? fullTempHtml.substring(bodyStartIdx) : fullTempHtml;
       sectionsDiv.innerHTML = cleanBodyHtml;
 
-      // Ensure any cover page wrapper or cover page boxes are completely removed
-      sectionsDiv.querySelectorAll('.cover-page-wrapper').forEach(el => el.remove());
+      // Unwrap any cover page wrapper safely to preserve all child elements and sections
+      sectionsDiv.querySelectorAll('.cover-page-wrapper').forEach(el => {
+        el.replaceWith(...Array.from(el.childNodes));
+      });
 
       // 2. Load the base64 Word template using PizZip in the browser
       const zip = new PizZip(WORD_TEMPLATE_BASE64, { base64: true });
