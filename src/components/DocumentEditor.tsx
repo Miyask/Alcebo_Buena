@@ -2278,24 +2278,28 @@ ${cleanedBase64}`);
       if (coverXml) {
         coverXml = applyPlaceholders(coverXml);
 
-        // Clean floating "presupuesto" text nodes from body text paragraphs in coverXml
-        coverXml = coverXml.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
+        // Remove standalone v:shape elements at pos > 24000 that duplicate the portada on page 2
+        const pos24k = Math.min(24000, coverXml.length);
+        let before24k = coverXml.substring(0, pos24k);
+        let after24k = coverXml.substring(pos24k);
 
-        // Clear duplicate portada text nodes outside the main cover shape (pos > 30000)
-        const pos30k = Math.min(30000, coverXml.length);
-        let before30k = coverXml.substring(0, pos30k);
-        let after30k = coverXml.substring(pos30k);
-
-        after30k = after30k
+        after24k = after24k
+          .replace(/<v:shape\b[\s\S]*?<\/v:shape>/gi, '')
           .replace(/<w:t[^>]*>\s*Informe Técnico\s*<\/w:t>/gi, '<w:t></w:t>')
           .replace(/<w:t[^>]*>\s*Presupuesto para\s*<\/w:t>/gi, '<w:t></w:t>')
           .replace(/<w:t[^>]*>\s*PRESUPUESTO\s*<\/w:t>/gi, '<w:t></w:t>');
 
-        coverXml = before30k + after30k;
+        coverXml = before24k + after24k;
+        coverXml = coverXml.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
       }
 
-      // Also clean any floating "presupuesto" text nodes from translatedXML
-      translatedXML = translatedXML.replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
+      // Clean missing spaces in deCanalones and clean duplicate text in translatedXML
+      translatedXML = translatedXML
+        .replace(/Protección deCanalones/gi, 'Protección de Canalones')
+        .replace(/Protección deHuecos/gi, 'Protección de Huecos')
+        .replace(/Protección deZonas/gi, 'Protección de Zonas')
+        .replace(/la prolongada persistencia en el tiempo\s+el efecto mínimo estético/gi, '')
+        .replace(/<w:t[^>]*>\s*presupuesto\s*<\/w:t>/gi, '<w:t></w:t>');
 
       // Preserve header2.xml / footer files if present
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
