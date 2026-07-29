@@ -205,7 +205,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           html += `<div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; margin-bottom: 14px; justify-content: center;">`;
           bird.images.forEach((img) => {
             html += `<div style="text-align: center; background: #ffffff; padding: 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #cbd5e1;">`;
-            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" class="bird-image" data-img-id="img_bird_${bird.key}" style="width: 340px; max-width: 340px; max-height: 240px; border-radius: 6px; object-fit: cover; display: block;" />`;
+            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 320px; max-height: 220px; border-radius: 6px; object-fit: cover; display: block;" />`;
             html += `</div>`;
           });
           html += `</div>`;
@@ -575,14 +575,6 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const p2_val = quote.price2 || price2;
       const p3_val = quote.price3 || price3;
 
-      const formattedName = clientNameInput.trim().toUpperCase().startsWith('COMUNIDAD DE PROPIETARIOS') || clientNameInput.trim().toUpperCase().startsWith('COM. PROP.') || clientNameInput.trim().toUpperCase().startsWith('C.P.') 
-        ? escapeXml(clientNameInput.trim().toUpperCase()) 
-        : `Com. Prop. ${escapeXml(clientNameInput.trim().toUpperCase())}`;
-
-      const formattedAddress = clientAddressInput.trim().toUpperCase().startsWith('C/') || clientAddressInput.trim().toUpperCase().startsWith('CALLE') || clientAddressInput.trim().toUpperCase().startsWith('AVDA')
-        ? escapeXml(clientAddressInput.trim())
-        : `C/ ${escapeXml(clientAddressInput.trim())}`;
-
       let initialHtml = templateWithPlaceholders
         .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
@@ -619,18 +611,16 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
               <h1 style="font-size: 20pt; font-weight: bold; margin: 0; text-decoration: underline; color: #000;">Informe Técnico</h1>
             </div>
           </div>
-          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; max-width: 520px; margin: 0 auto; box-sizing: border-box; background: #fff;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-              <div style="font-size: 11pt; font-weight: bold; color: #000;">Presupuesto para</div>
-              <div style="border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000; white-space: nowrap;">
-                Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
-              </div>
-            </div>
-            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 20px; color: #000;">
-              <div><strong class="client-name-field">${formattedName}</strong></div>
-              <div><span class="client-address-field">${formattedAddress}</span></div>
+          <div style="border: 2px solid #000; padding: 15px 20px; text-align: left; position: relative; max-width: 520px; margin: 0 auto; box-sizing: border-box; min-height: 140px; background: #fff;">
+            <div style="font-size: 11pt; font-weight: bold; margin-bottom: 10px; color: #000;">Presupuesto para</div>
+            <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
+              <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
+              <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
               <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
+            </div>
+            <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
+              Ref: <span class="ref-code-field">${escapeXml(finalRefCode)}</span>
             </div>
           </div>
         </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
@@ -1851,46 +1841,18 @@ ${cleanedBase64}`);
       const monthStr = monthNames[today.getMonth()];
       const yearStr = today.getFullYear().toString().substring(2);
 
-      let cleanClientName = clientNameInput.trim().toUpperCase();
-      if (cleanClientName.startsWith('COMUNIDAD DE PROPIETARIOS')) {
-        cleanClientName = cleanClientName.replace(/^COMUNIDAD DE PROPIETARIOS\s*/i, '');
-      } else if (cleanClientName.startsWith('COM. PROP.')) {
-        cleanClientName = cleanClientName.replace(/^COM\. PROP\.\s*/i, '');
-      }
-
-      let cleanClientAddress = clientAddressInput.trim();
-      if (/^C\/\s*/i.test(cleanClientAddress)) {
-        cleanClientAddress = cleanClientAddress.replace(/^C\/\s*/i, '');
-      } else if (/^Calle\s*/i.test(cleanClientAddress)) {
-        cleanClientAddress = cleanClientAddress.replace(/^Calle\s*/i, '');
-      }
-
-      // Update cover page VML shape dimensions (_x0000_s1098) so it fits long client names & ref codes without clipping
-      const shapePosTag = docXml.indexOf('_x0000_s1098');
-      if (shapePosTag !== -1) {
-        const shapeTagPos = docXml.lastIndexOf('<v:shape', shapePosTag);
-        const shapeTagEnd = docXml.indexOf('>', shapeTagPos);
-        if (shapeTagPos !== -1 && shapeTagEnd !== -1) {
-          const oldTag = docXml.substring(shapeTagPos, shapeTagEnd + 1);
-          const newTag = oldTag
-            .replace(/height:[^;"]+/, 'height:160pt;mso-fit-shape-to-text:t')
-            .replace(/width:[^;"]+/, 'width:360pt');
-          docXml = docXml.replace(oldTag, newTag);
-        }
-      }
-
       docXml = docXml
         .replace(/<w:p[^>]*>(?:(?!<\/w:p>)[\s\S])*?Foto\s*Muestra(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi, '')
         // Replace native template @@@@ placeholders using paragraph-bounded regexes to prevent XML corruption
         .replace(/(Ref:(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(finalRefCode)}$2`)
-        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientName)}$2`)
-        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(cleanClientAddress)}$2`)
+        .replace(/(Com\.\s*Prop\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientNameInput.toUpperCase())}$2`)
+        .replace(/(C\/\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1${escapeXml(clientAddressInput)}$2`)
         .replace(/(28<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@(\s*Madrid<\/w:t>)/gi, `$1001$2`)
         .replace(/(D\.\s*<\/w:t>(?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>)@@@@@@@@(<\/w:t>)/gi, `$1Presidente / Administrador de Fincas$2`)
         // Fallback replacements
         .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
-        .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
-        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
+        .replace(/\[CLIENT_NAME\]/g, escapeXml(clientNameInput.toUpperCase()))
+        .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(clientAddressInput))
         .replace(/\[POSTAL_CODE\]/g, '28001')
         .replace(/\[POSTAL_CODE_PREFIX\]/g, '280')
         .replace(/\[ATT_NAME\]/g, 'Presidente / Administrador de Fincas')
@@ -1926,11 +1888,13 @@ ${cleanedBase64}`);
           const tagName = el.tagName.toLowerCase();
           
           if (tagName === 'strong' || tagName === 'b') {
+            const bg = el.style.backgroundColor || '';
+            const isYellow = bg.includes('yellow') || bg.includes('#fef08a') || bg.includes('254') || (el.className && el.className.includes('-field'));
             const txt = (el.textContent || '').trim();
-            const txtUpper = txt.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const isContenidoItem = txtUpper.includes('ELECCION') || txtUpper.includes('CONTROL DE AVES') || txtUpper.includes('LEGISLACION') || txtUpper.includes('PROBLEMAS ASOCIADOS') || txtUpper.includes('SU CASO') || txtUpper.includes('PRESUPUESTO');
-            const isLongParagraph = txt.length > 150 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.');
-            const applyBold = !isLongParagraph || isContenidoItem;
+            const isContenidoItem = txt.includes('ELECCIÓN') || txt.includes('CONTROL DE AVES') || txt.includes('LEGISLACIÓN') || txt.includes('PROBLEMAS ASOCIADOS') || txt.includes('SU CASO') || txt.includes('PRESUPUESTO Y GARANTÍAS');
+            // Don't bold long body paragraphs (>40 chars) unless they are headers or labels containing a colon or table of contents items
+            const isBodyParagraph = txt.length > 40 && !txt.includes(':') && !txt.startsWith('1.') && !txt.startsWith('2.') && !txt.startsWith('3.') && !txt.startsWith('4.') && !txt.startsWith('5.') && !txt.startsWith('6.') && !isYellow && !isContenidoItem;
+            const applyBold = !isBodyParagraph;
             return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${applyBold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r>`;
           }
           if (tagName === 'em' || tagName === 'i') {
@@ -2082,23 +2046,7 @@ ${cleanedBase64}`);
           }
 
           if (tagName === 'img') {
-            let src = el.getAttribute('src') || '';
-            if (src.startsWith('blob:') || src.startsWith('http')) {
-              try {
-                const canvas = document.createElement('canvas');
-                const imgObj = el as HTMLImageElement;
-                canvas.width = imgObj.naturalWidth || 300;
-                canvas.height = imgObj.naturalHeight || 200;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                  ctx.drawImage(imgObj, 0, 0);
-                  src = canvas.toDataURL('image/jpeg');
-                }
-              } catch (e) {
-                console.warn('Could not convert image to dataUrl:', e);
-              }
-            }
-
+            const src = el.getAttribute('src') || '';
             if (src.startsWith('data:')) {
               const currentNum = nextRelIdNum++;
               const bRelId = `rId${currentNum}`;
@@ -2117,32 +2065,17 @@ ${cleanedBase64}`);
               
               let pxWidth = 280;
               const styleWidth = el.style.width || el.getAttribute('width') || '';
-              const imgId = el.getAttribute('data-img-id') || '';
-
-              const isSignature = imgId.includes('sello') || imgId.includes('firma') || el.classList.contains('signature-image') || src.includes('sello') || src.includes('firma');
-              const isBirdImage = el.classList.contains('bird-image') || imgId.startsWith('img_bird_') || imgId.startsWith('extracted_bird_') || src.includes('extracted_bird') || el.closest('.des-plaga-block') !== null;
-              const isUserAddedOrDrawn = imgId.startsWith('img_') || el.closest('.image-container-block') !== null;
-
-              if (isSignature) {
-                pxWidth = 140;
-              } else if (isBirdImage) {
-                pxWidth = 340;
-              } else if (styleWidth && !styleWidth.includes('%')) {
+              if (styleWidth && !styleWidth.includes('%')) {
                 const parsed = parseInt(styleWidth);
                 if (!isNaN(parsed) && parsed > 0) pxWidth = parsed;
-              } else if (isUserAddedOrDrawn) {
-                pxWidth = 420;
               }
               
               let widthPt = pxWidth * 0.75;
-              if (isSignature) {
-                widthPt = 110;
-              } else if (isBirdImage) {
-                widthPt = 255;
-              } else if (widthPt > 450) {
-                widthPt = 450;
-              } else if (widthPt < 100) {
-                widthPt = 200;
+              if (widthPt > 320) {
+                widthPt = 320;
+              }
+              if (widthPt < 80) {
+                widthPt = 240;
               }
 
               let aspectRatio = 0.75;
@@ -2228,42 +2161,69 @@ ${cleanedBase64}`);
       // Deduplicate consecutive page breaks to eliminate blank pages in Word
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
 
-      // 5. Apply placeholders to header1.xml (preserves EjemploBueno.docx corporate logo & vertical 'presupuesto' watermark shape)
-      let header1Xml = zip.file('word/header1.xml')?.asText() || '';
-      if (header1Xml) {
-        header1Xml = applyPlaceholders(header1Xml);
-        zip.file('word/header1.xml', header1Xml);
-      }
+      // 5. Ensure header1Xml (Cover Page header) is EMPTY so no top corporate box appears on Page 1
+      const emptyHeader1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p/></w:hdr>`;
+      zip.file('word/header1.xml', emptyHeader1);
 
-      // Preserve header2.xml if present
+      // Preserved original corporate header2.xml without inserting vertical watermark shape
       let header2Xml = zip.file('word/header2.xml')?.asText() || '';
       if (header2Xml) {
-        header2Xml = applyPlaceholders(header2Xml);
         zip.file('word/header2.xml', header2Xml);
       }
 
-      // Ensure a page break exists before Presupuesto section in translatedXML
-      translatedXML = translatedXML.replace(
-        /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?-?\s*PRESUPUESTO|5\.?-?\s*PRESUPUESTO|PRESUPUESTO\s*ECON[O\u00d3]MICO)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>)/i,
-        '<w:p><w:r><w:br w:type="page"/></w:r></w:p>$1'
-      );
+      // Extract Cover page up to paragraph P13 containing the client details box
+      let coverXml = '';
+      const shapePos = docXml.indexOf('_x0000_s1098');
+      if (shapePos !== -1) {
+        const shapeEndPos = docXml.indexOf('</v:shape>', shapePos);
+        if (shapeEndPos !== -1) {
+          const p13End = docXml.indexOf('</w:p>', shapeEndPos) + 6;
+          coverXml = docXml.substring(0, p13End);
+        }
+      }
 
-      // Extract opening w:document / w:body tag from EjemploBueno.docx
-      const bodyTagEnd = docXml.indexOf('<w:body>') + 8;
-      const docXmlOpening = bodyTagEnd > 7 ? docXml.substring(0, bodyTagEnd) : 
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 w15 wp14"><w:body>';
+      if (!coverXml) {
+        // Fallback to searching for CONTENIDO or 1.-
+        const contenidoPos = docXml.indexOf('CONTENIDO');
+        const sec1Pos = docXml.indexOf('1.-');
+        const targetPos = contenidoPos !== -1 ? contenidoPos : sec1Pos;
+        let cutIndex = -1;
+        if (targetPos !== -1) {
+          const prevCloseP = docXml.lastIndexOf('</w:p>', targetPos);
+          cutIndex = prevCloseP !== -1 ? prevCloseP + 6 : docXml.lastIndexOf('<w:p', targetPos);
+        }
+        if (cutIndex === -1) {
+          throw new Error('No se encontró la frontera del contenido en la plantilla base.');
+        }
+        coverXml = docXml.substring(0, cutIndex);
+      }
 
-      // Extract sectPr tag from EjemploBueno.docx (references header1.xml rId22)
-      const lastSectPrPos = docXml.lastIndexOf('<w:sectPr');
-      const lastSectPrEnd = lastSectPrPos !== -1 ? docXml.indexOf('</w:sectPr>', lastSectPrPos) : -1;
-      const sectPrXml = (lastSectPrPos !== -1 && lastSectPrEnd !== -1)
-        ? docXml.substring(lastSectPrPos, lastSectPrEnd + 11)
-        : '<w:sectPr><w:headerReference w:type="default" r:id="rId22"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/></w:sectPr>';
+      // Remove footer reference from coverXml so Page 1 (Portada) has NO page number in footer
+      coverXml = coverXml.replace(/<w:footerReference[^>]*\/>/g, '');
 
-      // Assemble complete document XML: EjemploBueno opening + Live dynamic editor content (transcript, birds, images, budget) + EjemploBueno sectPr
-      const finalDocXml = docXmlOpening + translatedXML + sectPrXml + '</w:body></w:document>';
+      // Extract native body sectPr #2 for Sections 2+ from the end of the template
+      const lastSectPrIndex = docXml.lastIndexOf('<w:sectPr');
+      const lastSectPrEndIndex = docXml.indexOf('</w:sectPr>', lastSectPrIndex);
+      const sectPr2Xml = lastSectPrIndex !== -1 && lastSectPrEndIndex !== -1
+        ? docXml.substring(lastSectPrIndex, lastSectPrEndIndex + 11)
+        : '';
 
-      zip.file('word/document.xml', finalDocXml);
+      docXml = coverXml + translatedXML + sectPr2Xml + '</w:body></w:document>';
+
+      // Replace external network-pest.co.uk rId13 link with a 100% local offline image in header/footer relationship
+      if (IMAGE_RED_BASE64) {
+        const redData = IMAGE_RED_BASE64.split(',')[1];
+        if (redData) {
+          zip.file('word/media/image_red_local.jpeg', base64ToUint8Array(redData));
+          relsXml = relsXml.replace(
+            /<Relationship[^>]*Id="rId13"[^>]*\/>/i,
+            '<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image_red_local.jpeg"/>'
+          );
+        }
+      }
+
+      zip.file('word/document.xml', docXml);
       zip.file('word/_rels/document.xml.rels', relsXml);
 
       // 6. Generate DOCX file blob and download it
