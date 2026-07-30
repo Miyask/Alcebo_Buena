@@ -55,6 +55,11 @@ const FIXED_PRICE_LINES_REGEX = /<p>- Protección canalones del tejado \(Red Pal
 // own dynamic label/amount spans), so they can be migrated into the new dynamic block wrapper.
 const RENDERED_FIXED_PRICE_LINES_REGEX = /<p>-\s*Protección canalones del tejado \(Red Paloma\)[\s\S]*?<span class="price-field-1">[\s\S]*?<\/p>\s*<p>-\s*Protección de huecos de ventilación\.[\s\S]*?<span class="price-field-2">[\s\S]*?<\/p>\s*<p>-\s*Protección de las 2 cornisas superiores \(Red y Varilla\)[\s\S]*?<span class="price-field-3">[\s\S]*?<\/p>/;
 
+// The small company-stamp image near the signature block sits as a bare, unwrapped <img> in the raw
+// template — with no <p> wrapper it loses its intended right-aligned position on export (ends up
+// treated as a generic loose image like an inspection photo). Wrap it in a right-aligned paragraph.
+const SIGNATURE_STAMP_IMG_REGEX = /<img style="width:160px;[^"]*"[^>]*\/>/;
+
 interface DocumentEditorProps {
   quote: Quote;
   onSaveQuote: (updatedQuote: Quote) => void;
@@ -220,21 +225,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (bird) {
         html += `<div style="margin-bottom: 22px; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1;">`;
         html += `<h3 style="color: #009FE3; margin-top: 10px; margin-bottom: 8px; font-size: 13pt; font-weight: bold;">${bird.title}</h3>`;
-        const paragraphs = bird.text.split('\n\n');
-        paragraphs.forEach(p => {
-          if (p.trim()) {
-            html += `<p style="margin-bottom: 8px; text-align: justify; line-height: 1.6; font-size: 11pt; color: #334155;">${p.trim()}</p>`;
+        const paragraphs = bird.text.split('\n\n').filter(p => p.trim());
+        paragraphs.forEach((p, idx) => {
+          html += `<p style="margin-bottom: 8px; text-align: justify; line-height: 1.6; font-size: 11pt; color: #334155;">${p.trim()}</p>`;
+          // Place the bird's image(s) right after the first paragraph so they sit within the text
+          // instead of being bunched into a separate row after all the text.
+          if (idx === 0 && bird.images && bird.images.length > 0) {
+            bird.images.forEach((img) => {
+              html += `<div class="bird-image-block" style="text-align: center; margin: 14px auto;"><img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="width:260px; max-width:100%; height:auto; border-radius: 6px;" /></div>`;
+            });
           }
         });
-        if (bird.images && bird.images.length > 0) {
-          html += `<div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; margin-bottom: 14px; justify-content: center;">`;
-          bird.images.forEach((img) => {
-            html += `<div style="text-align: center; background: #ffffff; padding: 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #cbd5e1;">`;
-            html += `<img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="max-width: 320px; max-height: 220px; border-radius: 6px; object-fit: cover; display: block;" />`;
-            html += `</div>`;
-          });
-          html += `</div>`;
-        }
         html += `</div>`;
       } else {
         const rule = (rules && rules.length > 0 ? rules : DEFAULT_CONDITIONAL_TEXTS).find(r => r.birdType?.toLowerCase() === key.toLowerCase());
@@ -589,11 +590,19 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (!/<hr class="page-break"\s*\/>\s*<p><strong>ANEXO/i.test(docHtml)) {
         docHtml = docHtml.replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
       }
+      // The official template numbers these as "5.1 Diagnóstico" / "5.2 Propuesta Técnica" (subsections
+      // of section 5), not as an independently-numbered list — replace the <ol><li> markup with plain
+      // labeled headings so they never render as two separate "1."s.
+      docHtml = docHtml
+        .replace(/<ol><li><strong>Diagnóstico<\/strong><\/li><\/ol>/, '<p><strong>5.1 Diagnóstico</strong></p>')
+        .replace(/<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>/, '<p><strong>5.2 Propuesta Técnica</strong></p>');
       docHtml = docHtml.replace(
-        /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+        /(<p>- Además,[\s\S]*?<\/ul>)\s*(<p><strong>5\.2 Propuesta Técnica<\/strong><\/p>)/,
         '$2$1'
       );
-      docHtml = docHtml.replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
+      if (SIGNATURE_STAMP_IMG_REGEX.test(docHtml)) {
+        docHtml = docHtml.replace(SIGNATURE_STAMP_IMG_REGEX, (m) => `<p style="text-align: right;">${m}</p>`);
+      }
 
       // Migrate old drafts' fixed 3-line budget into the dynamic (variable-length) price block wrapper
       if (!docHtml.includes('precio-lineas-block') && RENDERED_FIXED_PRICE_LINES_REGEX.test(docHtml)) {
@@ -651,11 +660,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
         .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
         .replace(FIXED_PRICE_LINES_REGEX, '<div class="precio-lineas-block">[PRECIO_LINEAS]</div>')
+        .replace(SIGNATURE_STAMP_IMG_REGEX, (m) => `<p style="text-align: right;">${m}</p>`)
+        .replace(/<ol><li><strong>Diagnóstico<\/strong><\/li><\/ol>/, '<p><strong>5.1 Diagnóstico</strong></p>')
+        .replace(/<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>/, '<p><strong>5.2 Propuesta Técnica</strong></p>')
         .replace(
-          /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+          /(<p>- Además,[\s\S]*?<\/ul>)\s*(<p><strong>5\.2 Propuesta Técnica<\/strong><\/p>)/,
           '$2$1'
-        )
-        .replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
+        );
 
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
@@ -1440,11 +1451,13 @@ Transcripción:
             .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
             .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
             .replace(FIXED_PRICE_LINES_REGEX, '<div class="precio-lineas-block">[PRECIO_LINEAS]</div>')
+            .replace(SIGNATURE_STAMP_IMG_REGEX, (m) => `<p style="text-align: right;">${m}</p>`)
+            .replace(/<ol><li><strong>Diagnóstico<\/strong><\/li><\/ol>/, '<p><strong>5.1 Diagnóstico</strong></p>')
+            .replace(/<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>/, '<p><strong>5.2 Propuesta Técnica</strong></p>')
             .replace(
-              /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+              /(<p>- Además,[\s\S]*?<\/ul>)\s*(<p><strong>5\.2 Propuesta Técnica<\/strong><\/p>)/,
               '$2$1'
-            )
-            .replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
+            );
 
           const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
@@ -2140,7 +2153,12 @@ ${cleanedBase64}`);
           if (tagName === 'p') {
             const img = el.querySelector('img');
             if (img) {
-              return translateNodeToWordXML(img);
+              // Wrap the image in a proper paragraph honoring the <p>'s own alignment (e.g. a
+              // right-aligned signature stamp), instead of discarding it as a bare loose run.
+              const imgRunXml = translateNodeToWordXML(img);
+              const textAlign = el.style.textAlign;
+              const jcVal = textAlign === 'right' ? 'right' : textAlign === 'center' ? 'center' : 'left';
+              return `<w:p><w:pPr><w:jc w:val="${jcVal}"/></w:pPr>${imgRunXml}</w:p>`;
             }
 
             const textContent = el.textContent || '';
@@ -2248,6 +2266,7 @@ ${cleanedBase64}`);
               listXml += `<w:p>
                 <w:pPr>
                   <w:ind w:left="360" w:hanging="240"/>
+                  <w:spacing w:before="40" w:after="80"/>
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
@@ -2400,7 +2419,7 @@ ${cleanedBase64}`);
             return `<w:r><w:br w:type="page"/></w:r>`;
           }
 
-          if (tagName === 'div' && el.classList.contains('image-container-block')) {
+          if (tagName === 'div' && (el.classList.contains('image-container-block') || el.classList.contains('bird-image-block'))) {
             const containedImg = el.querySelector('img');
             if (!containedImg) return '';
             const imgRunXml = translateNodeToWordXML(containedImg);
@@ -2480,6 +2499,16 @@ ${cleanedBase64}`);
       let coverXml = p30ClosePos !== -1 ? docXml.substring(0, p30ClosePos) : '';
       if (coverXml) {
         coverXml = applyPlaceholders(coverXml);
+        // The official template stores each cover-page shape (logo, "Informe Técnico" title, the
+        // client info box, the watermark) twice — once as a modern DrawingML <mc:Choice> and once as
+        // a legacy VML <mc:Fallback> — which real Word only ever renders one of (Choice). Some
+        // viewers/converters don't fully support mc:AlternateContent and render both, which is what
+        // makes the client name/address box appear duplicated. Blank the Fallback's text runs (keep
+        // the shape wrapper itself intact for XML validity) so nothing shows twice anywhere.
+        coverXml = coverXml.replace(
+          /(<mc:Fallback>)([\s\S]*?)(<\/mc:Fallback>)/g,
+          (_m, open, fallbackContent, close) => open + fallbackContent.replace(/<w:t([^>]*)>[^<]*<\/w:t>/g, '<w:t$1></w:t>') + close
+        );
         // Append a clean page break at the end of Page 1 Portada so Page 2 starts cleanly
         coverXml += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
       }
