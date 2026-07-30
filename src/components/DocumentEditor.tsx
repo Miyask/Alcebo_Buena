@@ -30,6 +30,31 @@ if (matchRed && matchRed[1]) IMAGE_RED_BASE64 = 'data:image/jpeg;base64,' + matc
 const matchVarillas = WORD_TEMPLATE_HTML.match(/VARILLAS AVIPOINT[\s\S]*?<img src="data:image\/jpeg;base64,([^"]+)"/i);
 if (matchVarillas && matchVarillas[1]) IMAGE_VARILLAS_BASE64 = 'data:image/jpeg;base64,' + matchVarillas[1];
 
+interface PriceItem {
+  label: string;
+  amount: string;
+}
+
+const DEFAULT_PRICE_ITEMS: PriceItem[] = [
+  { label: 'Protección canalones del tejado (Red Paloma)', amount: '300.00' },
+  { label: 'Protección de huecos de ventilación.', amount: '150.00' },
+  { label: 'Protección de las 2 cornisas superiores (Red y Varilla)', amount: '450.00' },
+];
+
+const getPriceLinesHtml = (items: PriceItem[]): string => {
+  return items.map(item =>
+    `<p>- <span class="price-label-field">${escapeXml(item.label)}</span> .......... <strong><span class="price-amount-field">${escapeXml(item.amount)}</span></strong> €</p>`
+  ).join('');
+};
+
+// Matches the 3 fixed budget lines as they originally appear in WORD_TEMPLATE_HTML, so they can be
+// swapped for a dynamic (variable-length) price block.
+const FIXED_PRICE_LINES_REGEX = /<p>- Protección canalones del tejado \(Red Paloma\)[\s\S]*?<strong>\[PRECIO_1\]<\/strong> €<\/p><p>- Protección de huecos de ventilación\.[\s\S]*?<strong>\[PRECIO_2\]<\/strong> €<\/p><p>- Protección de las 2 cornisas superiores \(Red y Varilla\)[\s\S]*?<strong>\[PRECIO_3\]<\/strong> €<\/p>/;
+
+// Matches the same 3 lines once already rendered (old saved documents, before price lines had their
+// own dynamic label/amount spans), so they can be migrated into the new dynamic block wrapper.
+const RENDERED_FIXED_PRICE_LINES_REGEX = /<p>-\s*Protección canalones del tejado \(Red Paloma\)[\s\S]*?<span class="price-field-1">[\s\S]*?<\/p>\s*<p>-\s*Protección de huecos de ventilación\.[\s\S]*?<span class="price-field-2">[\s\S]*?<\/p>\s*<p>-\s*Protección de las 2 cornisas superiores \(Red y Varilla\)[\s\S]*?<span class="price-field-3">[\s\S]*?<\/p>/;
+
 interface DocumentEditorProps {
   quote: Quote;
   onSaveQuote: (updatedQuote: Quote) => void;
@@ -287,9 +312,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   }, [selectedBirds, selectedSystems]);
 
-  const [price1, setPrice1] = useState<string>('300.00');
-  const [price2, setPrice2] = useState<string>('150.00');
-  const [price3, setPrice3] = useState<string>('450.00');
+  const [priceItems, setPriceItems] = useState<PriceItem[]>(() => {
+    if (quote.priceItems && quote.priceItems.length > 0) return quote.priceItems;
+    if (quote.price1 || quote.price2 || quote.price3) {
+      return [
+        { label: 'Protección canalones del tejado (Red Paloma)', amount: quote.price1 || '300.00' },
+        { label: 'Protección de huecos de ventilación.', amount: quote.price2 || '150.00' },
+        { label: 'Protección de las 2 cornisas superiores (Red y Varilla)', amount: quote.price3 || '450.00' },
+      ];
+    }
+    return DEFAULT_PRICE_ITEMS;
+  });
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -321,30 +354,26 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     const isTextChanged = customText !== (quote.text || '');
     const isTemplateChanged = selectedTemplateId !== (quote.templateId || 'temp-red');
     
-    const isPrice1Changed = price1 !== (quote.price1 || '300.00');
-    const isPrice2Changed = price2 !== (quote.price2 || '150.00');
-    const isPrice3Changed = price3 !== (quote.price3 || '450.00');
-    
+    const isPriceItemsChanged = JSON.stringify(priceItems) !== JSON.stringify(quote.priceItems || []);
+
     const areBirdsChanged = JSON.stringify(selectedBirds) !== JSON.stringify(quote.birds || ['Palomas']);
     const areSystemsChanged = JSON.stringify(selectedSystems) !== JSON.stringify(quote.systems || ['Red']);
-    
+
     if (
-      isNameChanged || 
-      isAddressChanged || 
-      isEmailChanged || 
-      isMetersChanged || 
-      isDateChanged || 
-      isTextChanged || 
-      isTemplateChanged || 
-      isPrice1Changed || 
-      isPrice2Changed || 
-      isPrice3Changed || 
-      areBirdsChanged || 
+      isNameChanged ||
+      isAddressChanged ||
+      isEmailChanged ||
+      isMetersChanged ||
+      isDateChanged ||
+      isTextChanged ||
+      isTemplateChanged ||
+      isPriceItemsChanged ||
+      areBirdsChanged ||
       areSystemsChanged
     ) {
       setSaveStatus('dirty');
     }
-  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, price1, price2, price3, customText, selectedTemplateId, quote]);
+  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, priceItems, customText, selectedTemplateId, quote]);
 
   // Feature 5: Apply base template to editor DOM fields
   const handleApplyTemplate = (tempId: string) => {
@@ -389,31 +418,46 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   };
 
-  const handlePrice1Change = (val: string) => {
-    setPrice1(val);
+  const rebuildPriceLinesDOM = (items: PriceItem[]) => {
     if (editorRef.current) {
-      editorRef.current.querySelectorAll('.price-field-1').forEach(el => {
-        el.textContent = val;
-      });
+      const block = editorRef.current.querySelector('.precio-lineas-block');
+      if (block) {
+        block.innerHTML = getPriceLinesHtml(items);
+      }
     }
   };
 
-  const handlePrice2Change = (val: string) => {
-    setPrice2(val);
+  const handlePriceLabelChange = (idx: number, val: string) => {
+    setPriceItems(prev => prev.map((it, i) => i === idx ? { ...it, label: val } : it));
     if (editorRef.current) {
-      editorRef.current.querySelectorAll('.price-field-2').forEach(el => {
-        el.textContent = val;
-      });
+      const el = editorRef.current.querySelectorAll('.price-label-field')[idx];
+      if (el) el.textContent = val;
     }
   };
 
-  const handlePrice3Change = (val: string) => {
-    setPrice3(val);
+  const handlePriceAmountChange = (idx: number, val: string) => {
+    setPriceItems(prev => prev.map((it, i) => i === idx ? { ...it, amount: val } : it));
     if (editorRef.current) {
-      editorRef.current.querySelectorAll('.price-field-3').forEach(el => {
-        el.textContent = val;
-      });
+      const el = editorRef.current.querySelectorAll('.price-amount-field')[idx];
+      if (el) el.textContent = val;
     }
+  };
+
+  const handleAddPriceItem = () => {
+    setPriceItems(prev => {
+      const next = [...prev, { label: 'Nueva partida', amount: '0.00' }];
+      rebuildPriceLinesDOM(next);
+      return next;
+    });
+  };
+
+  const handleRemovePriceItem = (idx: number) => {
+    setPriceItems(prev => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((_, i) => i !== idx);
+      rebuildPriceLinesDOM(next);
+      return next;
+    });
   };
 
   // Initialize document content on mount
@@ -424,9 +468,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     setSelectedBirds(quote.birds && quote.birds.length > 0 ? quote.birds : ['Palomas']);
     setSelectedSystems(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
     setMeters(quote.estimationLineal || 15);
-    setPrice1(quote.price1 || '300.00');
-    setPrice2(quote.price2 || '150.00');
-    setPrice3(quote.price3 || '450.00');
+    if (quote.priceItems && quote.priceItems.length > 0) {
+      setPriceItems(quote.priceItems);
+    } else if (quote.price1 || quote.price2 || quote.price3) {
+      setPriceItems([
+        { label: 'Protección canalones del tejado (Red Paloma)', amount: quote.price1 || '300.00' },
+        { label: 'Protección de huecos de ventilación.', amount: quote.price2 || '150.00' },
+        { label: 'Protección de las 2 cornisas superiores (Red y Varilla)', amount: quote.price3 || '450.00' },
+      ]);
+    } else {
+      setPriceItems(DEFAULT_PRICE_ITEMS);
+    }
     setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
@@ -434,7 +486,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       let docHtml = quote.documentHtml
         .replace(/src="\$\{logoUrl\}"/g, `src="${logoUrl}"`)
         .replace(/src="undefined"/g, `src="${logoUrl}"`);
-      
+
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+
       // Clean up any duplicate cover-page-wrapper that resulted from the previous bug
       if (docHtml.includes('cover-page-wrapper') && (docHtml.match(/cover-page-wrapper/g) || []).length > 1) {
         docHtml = docHtml.replace(
@@ -519,14 +573,31 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       }
       docHtml = docHtml.replace(/<p[^>]*><strong>presupuesto<\/strong><\/p>/gi, '');
 
-      // Patch old drafts that don't have page-break class
+      // Patch old drafts that don't have page-break class at all
       if (!docHtml.includes('page-break')) {
         docHtml = docHtml
           .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
           .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
           .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')
-          .replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
+          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+      }
+
+      // These patches are independently idempotent (each checks its own precondition), so they run
+      // on EVERY load — including drafts saved before these fixes existed, which the "no page-break at
+      // all" gate above would otherwise skip forever since those drafts already contain other page-break
+      // markers.
+      if (!/<hr class="page-break"\s*\/>\s*<p><strong>ANEXO/i.test(docHtml)) {
+        docHtml = docHtml.replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
+      }
+      docHtml = docHtml.replace(
+        /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+        '$2$1'
+      );
+      docHtml = docHtml.replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
+
+      // Migrate old drafts' fixed 3-line budget into the dynamic (variable-length) price block wrapper
+      if (!docHtml.includes('precio-lineas-block') && RENDERED_FIXED_PRICE_LINES_REGEX.test(docHtml)) {
+        docHtml = docHtml.replace(RENDERED_FIXED_PRICE_LINES_REGEX, (m) => `<div class="precio-lineas-block">${m}</div>`);
       }
 
       setEditorHtml(docHtml);
@@ -535,14 +606,27 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         if (editorRef.current) {
           const cName = editorRef.current.querySelector('.client-name-field')?.textContent;
           const cAddr = editorRef.current.querySelector('.client-address-field')?.textContent;
-          const p1 = editorRef.current.querySelector('.price-field-1')?.textContent;
-          const p2 = editorRef.current.querySelector('.price-field-2')?.textContent;
-          const p3 = editorRef.current.querySelector('.price-field-3')?.textContent;
+          const labelEls = Array.from(editorRef.current.querySelectorAll('.price-label-field')) as HTMLElement[];
+          const amountEls = Array.from(editorRef.current.querySelectorAll('.price-amount-field')) as HTMLElement[];
           if (cName) setClientNameInput(cName);
           if (cAddr) setClientAddressInput(cAddr);
-          if (p1) setPrice1(p1);
-          if (p2) setPrice2(p2);
-          if (p3) setPrice3(p3);
+          if (amountEls.length > 0) {
+            setPriceItems(amountEls.map((el, i) => ({
+              label: labelEls[i]?.textContent || `Partida ${i + 1}`,
+              amount: el.textContent || '0.00',
+            })));
+          } else {
+            const p1 = editorRef.current.querySelector('.price-field-1')?.textContent;
+            const p2 = editorRef.current.querySelector('.price-field-2')?.textContent;
+            const p3 = editorRef.current.querySelector('.price-field-3')?.textContent;
+            if (p1 || p2 || p3) {
+              setPriceItems([
+                { label: 'Protección canalones del tejado (Red Paloma)', amount: p1 || '300.00' },
+                { label: 'Protección de huecos de ventilación.', amount: p2 || '150.00' },
+                { label: 'Protección de las 2 cornisas superiores (Red y Varilla)', amount: p3 || '450.00' },
+              ]);
+            }
+          }
         }
       }, 100);
     } else {
@@ -566,19 +650,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const templateWithPlaceholders = WORD_TEMPLATE_HTML
         .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
         .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
+        .replace(FIXED_PRICE_LINES_REGEX, '<div class="precio-lineas-block">[PRECIO_LINEAS]</div>')
         .replace(
-          /(<p>- Además,[\s\S]*?<\/ul>)(<ol><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+          /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
           '$2$1'
-        );
+        )
+        .replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
 
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
-
-      const p1_val = quote.price1 || price1;
-      const p2_val = quote.price2 || price2;
-      const p3_val = quote.price3 || price3;
 
       let initialHtml = templateWithPlaceholders
         .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
@@ -592,7 +674,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
         .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
-        .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
+        .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${quote.zonasAfectadas || (selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
         .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
         .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
         .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
@@ -605,9 +687,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/deCanalones/gi, 'de Canalones')
         .replace(/deHuecos/gi, 'de Huecos')
         .replace(/deZonas/gi, 'de Zonas')
-        .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${p1_val}</span>`)
-        .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${p2_val}</span>`)
-        .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
+        .replace(/\[PRECIO_LINEAS\]/g, getPriceLinesHtml(priceItems))
         .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
         .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
         .replace(/Se propone la protección mediante sistema de Red Network anti-palomas/gi, `Se propone la protección mediante <mark class="sistemas-nombres-field" style="background-color: #fef08a; padding: 1px 3px; border-radius: 2px;">Red Network anti-palomas</mark>`)
@@ -1044,15 +1124,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       birds: selectedBirds,
       systems: selectedSystems,
       estimationLineal: meters,
-      totalCost: parseFloat(price3) || 0,
-      price1: price1,
-      price2: price2,
-      price3: price3,
+      totalCost: priceItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
+      priceItems: priceItems,
       documentHtml: htmlContent,
       text: customText,
       templateId: selectedTemplateId
     };
-    
+
     onSaveQuote(updated);
     if (!isAutoSave) {
       showToast('¡Presupuesto y plantilla guardados en el historial!');
@@ -1346,25 +1424,27 @@ Transcripción:
           setClientNameInput(detectedClient);
           setClientAddressInput(detectedAddress);
 
-          let p1_val = price1;
-          let p2_val = price2;
-          let p3_val = price3;
-
-          if (ai) {
-            if (ai.price1) { p1_val = ai.price1; setPrice1(ai.price1); }
-            if (ai.price2) { p2_val = ai.price2; setPrice2(ai.price2); }
-            if (ai.price3) { p3_val = ai.price3; setPrice3(ai.price3); }
+          let priceItemsForBuild = priceItems;
+          if (ai && (ai.price1 || ai.price2 || ai.price3)) {
+            priceItemsForBuild = [
+              { label: 'Protección canalones del tejado (Red Paloma)', amount: ai.price1 || priceItems[0]?.amount || '300.00' },
+              { label: 'Protección de huecos de ventilación.', amount: ai.price2 || priceItems[1]?.amount || '150.00' },
+              { label: 'Protección de las 2 cornisas superiores (Red y Varilla)', amount: ai.price3 || priceItems[2]?.amount || '450.00' },
+            ];
+            setPriceItems(priceItemsForBuild);
           }
-          
+
           const systemBlockRegex = /<ul><li><strong>RED NETWORK ANTI-PALOMAS[\s\S]*?Fijación con adhesivo sellador de poliuretano de exteriores\.<\/li><\/ul>/i;
           const plagaParagraphRegex = /<p>Las estimaciones indican que una ciudad media mediterránea posee una población de más de 1500 palomas por kilómetro cuadrado[\s\S]*?aprovechar los desechos animales\.\s*<\/p>/gi;
           const templateWithPlaceholders = WORD_TEMPLATE_HTML
             .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
             .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
+            .replace(FIXED_PRICE_LINES_REGEX, '<div class="precio-lineas-block">[PRECIO_LINEAS]</div>')
             .replace(
-              /(<p>- Además,[\s\S]*?<\/ul>)(<ol><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+              /(<p>- Además,[\s\S]*?<\/ul>)\s*(<ol(?:\s+start="2")?><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
               '$2$1'
-            );
+            )
+            .replace(/<ol>(<li><strong>Propuesta Técnica)/, '<ol start="2">$1');
 
           const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
@@ -1391,9 +1471,7 @@ Transcripción:
             .replace(/\[ZONA_1\]/g, `<span class="zona-1-field">${z1}</span>`)
             .replace(/\[ZONA_2\]/g, `<span class="zona-2-field">${z2}</span>`)
             .replace(/\[ZONA_3\]/g, `<span class="zona-3-field">${z3}</span>`)
-            .replace(/\[PRECIO_1\]/g, `<span class="price-field-1">${p1_val}</span>`)
-            .replace(/\[PRECIO_2\]/g, `<span class="price-field-2">${p2_val}</span>`)
-            .replace(/\[PRECIO_3\]/g, `<span class="price-field-3">${p3_val}</span>`)
+            .replace(/\[PRECIO_LINEAS\]/g, getPriceLinesHtml(priceItemsForBuild))
             .replace(/\[TECNICO\]/g, `<span class="tecnico-field">Técnico Oficial Alcebo</span>`)
             .replace(/\[TELEFONO\]/g, `<span class="telefono-field">900 123 456</span>`)
             .replace(/\[DESCRIPCION_PLAGA\]/g, getBirdsHtml([detectedBird]))
@@ -1463,7 +1541,7 @@ Transcripción:
       clientAddress: clientAddressInput,
       clientEmail: clientEmailInput,
       estimationLineal: meters,
-      totalCost: parseFloat(price3) || 0,
+      totalCost: priceItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
     };
     
     enviarAlSeguimiento(currentQuote);
@@ -1838,7 +1916,7 @@ ${cleanedBase64}`);
       clientAddress: clientAddressInput,
       clientEmail: clientEmailInput,
       estimationLineal: meters,
-      totalCost: parseFloat(price3) || 0,
+      totalCost: priceItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
     };
     
     enviarAlSeguimiento(currentQuote);
@@ -2067,7 +2145,7 @@ ${cleanedBase64}`);
 
             const textContent = el.textContent || '';
             const isSectionHeading = /^\s*\d+\s*[\.-]\s*/.test(textContent) || !!el.querySelector('strong')?.textContent?.match(/^\s*\d+\s*[\.-]\s*/);
-            const isPriceLine = !!el.querySelector('.price-field-1, .price-field-2, .price-field-3');
+            const isPriceLine = !!el.querySelector('.price-amount-field, .price-field-1, .price-field-2, .price-field-3');
 
             // For price lines, collapse the manually-typed dot/tab leader runs into a sentinel
             // so they can be swapped for a real Word tab stop (matching the official template,
@@ -2151,15 +2229,21 @@ ${cleanedBase64}`);
             let listXml = '';
             const isUnordered = tagName === 'ul';
             const items = Array.from(el.children).filter(child => child.tagName.toLowerCase() === 'li');
+            // Respect the HTML "start" attribute (used to continue Diagnóstico -> Propuesta Técnica
+            // numbering as 1./2. instead of both restarting at 1, matching the official template where
+            // both share one Word list/numId).
+            const startAttr = parseInt(el.getAttribute('start') || '1', 10);
+            const startNum = isNaN(startAttr) ? 1 : startAttr;
             items.forEach((li, idx) => {
               let liChildXml = '';
               li.childNodes.forEach(c => {
                 liChildXml += translateNodeToWordXML(c);
               });
               const cleanLiChild = liChildXml.replace(/<\/?w:p[^>]*>/gi, '');
+              const displayNum = startNum + idx;
               const bulletPrefix = isUnordered
                 ? `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="333333"/></w:rPr><w:t xml:space="preserve">▪  </w:t></w:r>`
-                : `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t xml:space="preserve">${idx + 1}.  </w:t></w:r>`;
+                : `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t xml:space="preserve">${displayNum}.  </w:t></w:r>`;
 
               listXml += `<w:p>
                 <w:pPr>
@@ -2887,35 +2971,44 @@ ${cleanedBase64}`);
               </div>
               
               <div className="pt-2 border-t border-slate-100 space-y-2">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Precios de Opciones (€)</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 1</label>
-                    <input 
-                      type="text" 
-                      value={price1} 
-                      onChange={(e) => handlePrice1Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 2</label>
-                    <input 
-                      type="text" 
-                      value={price2} 
-                      onChange={(e) => handlePrice2Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5 text-center">Opción 3</label>
-                    <input 
-                      type="text" 
-                      value={price3} 
-                      onChange={(e) => handlePrice3Change(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Líneas de Presupuesto (€)</label>
+                  <button
+                    type="button"
+                    onClick={handleAddPriceItem}
+                    className="text-[10px] font-bold text-[#009FE3] hover:text-[#006491] flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                    Añadir línea
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {priceItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={item.label}
+                        onChange={(e) => handlePriceLabelChange(idx, e.target.value)}
+                        placeholder="Descripción de la partida"
+                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={item.amount}
+                        onChange={(e) => handlePriceAmountChange(idx, e.target.value)}
+                        className="w-20 shrink-0 bg-slate-50 border border-slate-200 rounded-xl px-1 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors text-center font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePriceItem(idx)}
+                        disabled={priceItems.length <= 1}
+                        title="Eliminar línea"
+                        className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base leading-none block">delete</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

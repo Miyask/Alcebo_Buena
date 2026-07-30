@@ -200,6 +200,8 @@ JSON keys:
 - "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
 - "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
 - "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
+- "date": Fecha mencionada de la inspección o visita en formato "YYYY-MM-DD" si se nombra en la transcripción (ej. "2026-07-21"). Si no se nombra, deja este campo vacío o null.
+- "zonasAfectadas": Frase corta (5-12 palabras) que describa las zonas concretas del inmueble donde se observaron las aves, tal y como se mencionan en la transcripción (ej. "el tejado de pizarra y la antena", "las repisas de las ventanas y el alero trasero"). Si no se menciona ninguna zona concreta, usa "varias zonas del edificio".
 
 Transcripción:
 "${transcriptionText}"`;
@@ -293,10 +295,16 @@ Transcripción:
   const handleGenerateBorrador = () => {
     if (!transcription) return;
 
+    let quoteDate = new Date().toISOString().split('T')[0];
+    if (aiData?.date) {
+      const parsedD = new Date(aiData.date);
+      if (!isNaN(parsedD.getTime())) quoteDate = aiData.date;
+    }
+
     const newQuote: Quote = {
       id: 'q-' + Date.now(),
       title: clientName ? `Presupuesto ${clientName}` : `Presupuesto Automático ${new Date().toLocaleDateString()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: quoteDate,
       status: 'Borrador',
       text: transcription,
       birds: detectedBirds.length > 0 ? detectedBirds : ['Palomas'],
@@ -306,11 +314,12 @@ Transcripción:
       clientName: clientName || 'Comunidad Vecinos Pendiente',
       clientAddress: clientAddress || 'Sin dirección registrada',
       notes: notes || 'Presupuesto generado a partir de transcripción de voz.',
-      
+
       // AI Structuring fields
       introTecnica: notes || aiData?.introTecnica || undefined,
       problemaPrincipal: aiData?.problemaPrincipal || undefined,
       detalleAdicional: aiData?.detalleAdicional || undefined,
+      zonasAfectadas: aiData?.zonasAfectadas || undefined,
       refCode: aiData?.refCode || undefined,
       price1: aiData?.price1 || undefined,
       price2: aiData?.price2 || undefined,

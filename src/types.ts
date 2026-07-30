@@ -17,10 +17,12 @@ export interface Quote {
   introTecnica?: string;
   problemaPrincipal?: string;
   detalleAdicional?: string;
+  zonasAfectadas?: string;
   refCode?: string;
   price1?: string;
   price2?: string;
   price3?: string;
+  priceItems?: { label: string; amount: string }[];
   templateId?: string;
 }
 
