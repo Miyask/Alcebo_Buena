@@ -595,6 +595,10 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (!/<hr class="page-break"\s*\/>\s*<p><strong>ANEXO/i.test(docHtml)) {
         docHtml = docHtml.replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
       }
+      // The CONTENIDO index must sit alone on its own page — break before Section 1 starts.
+      if (!/<hr class="page-break"\s*\/>\s*<p><strong>1\.-  CONTROL DE AVES URBANAS/i.test(docHtml)) {
+        docHtml = docHtml.replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS');
+      }
       // The official template numbers these as "5.1 Diagnóstico" / "5.2 Propuesta Técnica" (subsections
       // of section 5), not as an independently-numbered list — replace the <ol><li> markup with plain
       // labeled headings so they never render as two separate "1."s.
@@ -753,7 +757,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             </div>
           </div>
         </div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>`)
-        .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
+        .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
         .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')
@@ -1384,35 +1388,36 @@ Transcripción:
           }
 
           // 6. Date extraction
+          // Negative lookbehind avoids matching a street name that happens to contain a date-like
+          // number (e.g. "Calle 18 de Octubre 11" is an address, not the visit date).
+          const dateRegex = /\b(?<!calle\s)(?<!c\/\s?)(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
+          const extractDateFromText = (text: string): string | null => {
+            const matchDate = text.match(dateRegex);
+            if (!matchDate) return null;
+            const day = matchDate[1];
+            const monthTextOrNum = matchDate[2].toLowerCase();
+            let year = matchDate[3];
+            if (year.length === 2) year = '20' + year;
+            const monthMap: Record<string, string> = {
+              'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
+              'julio': '07', 'agosto': '08', 'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+            };
+            const month = monthMap[monthTextOrNum] || monthTextOrNum.padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day.padStart(2, '0')}`;
+            return isNaN(new Date(formattedDate).getTime()) ? null : formattedDate;
+          };
+
           let detectedDate = new Date().toISOString().split('T')[0];
-          if (ai && ai.date) {
-            const parsedD = new Date(ai.date);
-            if (!isNaN(parsedD.getTime())) {
-              detectedDate = ai.date;
-            }
-          } else {
-            // Negative lookbehind avoids matching a street name that happens to contain a date-like
-            // number (e.g. "Calle 18 de Octubre 11" is an address, not the visit date).
-            const dateRegex = /\b(?<!calle\s)(?<!c\/\s?)(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
-            const matchDate = data.text.match(dateRegex);
-            if (matchDate) {
-              const day = matchDate[1];
-              const monthTextOrNum = matchDate[2].toLowerCase();
-              let year = matchDate[3];
-              if (year.length === 2) year = '20' + year;
-              
-              const monthMap: Record<string, string> = {
-                'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
-                'julio': '07', 'agosto': '08', 'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
-              };
-              
-              const month = monthMap[monthTextOrNum] || monthTextOrNum.padStart(2, '0');
-              const formattedDate = `${year}-${month}-${day.padStart(2, '0')}`;
-              const parsedD = new Date(formattedDate);
-              if (!isNaN(parsedD.getTime())) {
-                detectedDate = formattedDate;
-              }
-            }
+          const regexExtractedDate = extractDateFromText(data.text);
+          if (ai && ai.date && !isNaN(new Date(ai.date).getTime())) {
+            // Cross-check: if the AI's date's day number is actually part of a street name in the
+            // transcript (e.g. it picked "18" out of "Calle 18 de Octubre"), distrust it and prefer
+            // whatever the guarded regex scan found instead.
+            const aiDay = parseInt(ai.date.split('-')[2], 10);
+            const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)\\s*[^,.]*\\b${aiDay}\\b`, 'i').test(data.text);
+            detectedDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : ai.date;
+          } else if (regexExtractedDate) {
+            detectedDate = regexExtractedDate;
           }
           setQuoteDate(detectedDate);
  
@@ -1499,7 +1504,7 @@ Transcripción:
             .replace(/<p><strong>presupuesto<\/strong><\/p>/i, '<div class="cover-page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;"><p style="text-align: center; font-size: 24pt; font-weight: bold; color: #009FE3; margin-top: 15px; margin-bottom: 15px; letter-spacing: 2px;"><strong>PRESUPUESTO</strong></p>')
             .replace(/<p><strong>presupuesto<\/strong><\/p>/gi, '')
             .replace(/<p><strong>CONTENIDO<\/strong><\/p>/gi, '</div><hr class="page-break" /><p><strong>CONTENIDO</strong></p>')
-            .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
+            .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS')
             .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
             .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
             .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')

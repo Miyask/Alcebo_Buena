@@ -295,10 +295,36 @@ Transcripción:
   const handleGenerateBorrador = () => {
     if (!transcription) return;
 
+    // Negative lookbehind avoids matching a street name that happens to contain a date-like number
+    // (e.g. "Calle 18 de Octubre 11" is an address, not the visit date).
+    const dateRegex = /\b(?<!calle\s)(?<!c\/\s?)(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
+    const extractDateFromText = (text: string): string | null => {
+      const matchDate = text.match(dateRegex);
+      if (!matchDate) return null;
+      const day = matchDate[1];
+      const monthTextOrNum = matchDate[2].toLowerCase();
+      let year = matchDate[3];
+      if (year.length === 2) year = '20' + year;
+      const monthMap: Record<string, string> = {
+        'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
+        'julio': '07', 'agosto': '08', 'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+      };
+      const month = monthMap[monthTextOrNum] || monthTextOrNum.padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day.padStart(2, '0')}`;
+      return isNaN(new Date(formattedDate).getTime()) ? null : formattedDate;
+    };
+
     let quoteDate = new Date().toISOString().split('T')[0];
-    if (aiData?.date) {
-      const parsedD = new Date(aiData.date);
-      if (!isNaN(parsedD.getTime())) quoteDate = aiData.date;
+    const regexExtractedDate = extractDateFromText(transcription);
+    if (aiData?.date && !isNaN(new Date(aiData.date).getTime())) {
+      // Cross-check: if the AI's date's day number is actually part of a street name in the
+      // transcript (e.g. it picked "18" out of "Calle 18 de Octubre"), distrust it and prefer
+      // whatever the guarded regex scan found instead.
+      const aiDay = parseInt(aiData.date.split('-')[2], 10);
+      const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)\\s*[^,.]*\\b${aiDay}\\b`, 'i').test(transcription);
+      quoteDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : aiData.date;
+    } else if (regexExtractedDate) {
+      quoteDate = regexExtractedDate;
     }
 
     const newQuote: Quote = {
