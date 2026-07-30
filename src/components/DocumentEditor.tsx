@@ -20,6 +20,27 @@ const escapeXml = (str: string): string => {
     .replace(/'/g, '&apos;');
 };
 
+// Keyword-based fallback for the diagnosis "zonas afectadas" phrase, used whenever the AI didn't
+// return one (e.g. no LLM key configured, or the call failed) — scans the raw transcript for the
+// zones the technician actually mentioned instead of always falling back to a fixed default phrase.
+const ZONA_KEYWORDS = [
+  'placas solares', 'panel solar', 'paneles solares', 'cornisas superiores', 'cornisas', 'aleros',
+  'tejado', 'tejados', 'canalones', 'canalón', 'balcones', 'balcón', 'azotea', 'terrazas', 'terraza',
+  'ventanas', 'chimeneas', 'antenas', 'antena', 'fachada', 'repisas', 'alféizares', 'buhardilla', 'patio'
+];
+const extractZonasFromText = (text: string): string | null => {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  const found: string[] = [];
+  ZONA_KEYWORDS.forEach(kw => {
+    if (lower.includes(kw) && !found.some(f => f.includes(kw) || kw.includes(f))) {
+      found.push(kw);
+    }
+  });
+  if (found.length === 0) return null;
+  return found.slice(0, 3).join(' y ');
+};
+
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
 let IMAGE_VARILLAS_BASE64 = '';
@@ -89,6 +110,10 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const [selectedSystems, setSelectedSystems] = useState<string[]>(quote.systems && quote.systems.length > 0 ? quote.systems : ['Red']);
   const selectedSystem = selectedSystems[0] || 'Red';
   const [meters, setMeters] = useState<number>(quote.estimationLineal || 15);
+  // Holds the real "zonas afectadas" text (from the AI, or keyword-scanned from the transcript) so the
+  // birds/systems live-sync effect below doesn't stomp it back to the generic default every time the
+  // user toggles a checkbox (or the video-upload flow sets selectedBirds/selectedSystems).
+  const [zonasAfectadas, setZonasAfectadas] = useState<string>(quote.zonasAfectadas || extractZonasFromText(quote.text || '') || '');
   
   const [quoteDate, setQuoteDate] = useState<string>(quote.date || new Date().toISOString().split('T')[0]);
   
@@ -310,13 +335,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       editorRef.current.querySelectorAll('.zona-3-field').forEach(el => { el.textContent = z3; });
       
       editorRef.current.querySelectorAll('.zonas-afectadas-field').forEach(el => {
-        el.textContent = priSys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas';
+        el.textContent = zonasAfectadas || (priSys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas');
       });
 
       setEditorHtml(editorRef.current.innerHTML);
       setSaveStatus('dirty');
     }
-  }, [selectedBirds, selectedSystems]);
+  }, [selectedBirds, selectedSystems, zonasAfectadas]);
 
   const [priceItems, setPriceItems] = useState<PriceItem[]>(() => {
     if (quote.priceItems && quote.priceItems.length > 0) return quote.priceItems;
@@ -485,6 +510,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     } else {
       setPriceItems(DEFAULT_PRICE_ITEMS);
     }
+    setZonasAfectadas(quote.zonasAfectadas || extractZonasFromText(quote.text || '') || '');
     setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
@@ -694,7 +720,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
         .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
-        .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${quote.zonasAfectadas || (selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
+        .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${zonasAfectadas || (selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
         .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
         .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
         .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
@@ -1146,6 +1172,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       estimationLineal: meters,
       totalCost: priceItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
       priceItems: priceItems,
+      zonasAfectadas: zonasAfectadas || quote.zonasAfectadas,
       documentHtml: htmlContent,
       text: customText,
       templateId: selectedTemplateId
@@ -1414,7 +1441,7 @@ Transcripción:
             // transcript (e.g. it picked "18" out of "Calle 18 de Octubre"), distrust it and prefer
             // whatever the guarded regex scan found instead.
             const aiDay = parseInt(ai.date.split('-')[2], 10);
-            const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)\\s*[^,.]*\\b${aiDay}\\b`, 'i').test(data.text);
+            const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)[^.]{0,40}\\b${aiDay}\\b`, 'i').test(data.text);
             detectedDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : ai.date;
           } else if (regexExtractedDate) {
             detectedDate = regexExtractedDate;
@@ -1477,6 +1504,9 @@ Transcripción:
           const textForProblem = cleanProblemText((ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
           const textForDetail = (ai && ai.detalleAdicional) || "se observaron nidos construidos y obstrucciones en los conductos.";
 
+          const finalZonasAfectadas = (ai && ai.zonasAfectadas) || extractZonasFromText(data.text) || (primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas');
+          setZonasAfectadas(finalZonasAfectadas);
+
           let freshHtml = templateWithPlaceholders
             .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
             .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${detectedClient.toUpperCase()}</span>`)
@@ -1489,7 +1519,7 @@ Transcripción:
             .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
             .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
-            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${(ai && ai.zonasAfectadas) || (primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
+            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${finalZonasAfectadas}</span>`)
             .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
             .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
             .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
@@ -2291,13 +2321,17 @@ ${cleanedBase64}`);
               });
               const cleanLiChild = liChildXml.replace(/<\/?w:p[^>]*>/gi, '');
               const displayNum = startNum + idx;
+              // A real tab stop (matching the official template's own numbered-list definition:
+              // ind left=720/hanging=360, num tab at 720) instead of manually-typed trailing spaces,
+              // so the number/bullet and the text align consistently regardless of digit count.
               const bulletPrefix = isUnordered
-                ? `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="333333"/></w:rPr><w:t xml:space="preserve">▪  </w:t></w:r>`
-                : `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t xml:space="preserve">${displayNum}.  </w:t></w:r>`;
+                ? `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="333333"/></w:rPr><w:t xml:space="preserve">▪</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:tab/></w:r>`
+                : `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="009FE3"/></w:rPr><w:t xml:space="preserve">${displayNum}.</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:tab/></w:r>`;
 
               listXml += `<w:p>
                 <w:pPr>
-                  <w:ind w:left="360" w:hanging="240"/>
+                  <w:tabs><w:tab w:val="num" w:pos="720"/></w:tabs>
+                  <w:ind w:left="720" w:hanging="360"/>
                   ${listSpacing}
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>

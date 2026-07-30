@@ -7,6 +7,26 @@ interface DashboardViewProps {
   config: SystemConfig;
 }
 
+// Keyword-based fallback for the diagnosis "zonas afectadas" phrase, used whenever the AI didn't
+// return one (e.g. no LLM key configured, or the call failed).
+const ZONA_KEYWORDS = [
+  'placas solares', 'panel solar', 'paneles solares', 'cornisas superiores', 'cornisas', 'aleros',
+  'tejado', 'tejados', 'canalones', 'canalón', 'balcones', 'balcón', 'azotea', 'terrazas', 'terraza',
+  'ventanas', 'chimeneas', 'antenas', 'antena', 'fachada', 'repisas', 'alféizares', 'buhardilla', 'patio'
+];
+const extractZonasFromText = (text: string): string | null => {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  const found: string[] = [];
+  ZONA_KEYWORDS.forEach(kw => {
+    if (lower.includes(kw) && !found.some(f => f.includes(kw) || kw.includes(f))) {
+      found.push(kw);
+    }
+  });
+  if (found.length === 0) return null;
+  return found.slice(0, 3).join(' y ');
+};
+
 export default function DashboardView({ onAddQuote, config }: DashboardViewProps) {
   // Wizard States
   const [fileName, setFileName] = useState<string>('');
@@ -321,7 +341,7 @@ Transcripción:
       // transcript (e.g. it picked "18" out of "Calle 18 de Octubre"), distrust it and prefer
       // whatever the guarded regex scan found instead.
       const aiDay = parseInt(aiData.date.split('-')[2], 10);
-      const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)\\s*[^,.]*\\b${aiDay}\\b`, 'i').test(transcription);
+      const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)[^.]{0,40}\\b${aiDay}\\b`, 'i').test(transcription);
       quoteDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : aiData.date;
     } else if (regexExtractedDate) {
       quoteDate = regexExtractedDate;
@@ -345,7 +365,7 @@ Transcripción:
       introTecnica: notes || aiData?.introTecnica || undefined,
       problemaPrincipal: aiData?.problemaPrincipal || undefined,
       detalleAdicional: aiData?.detalleAdicional || undefined,
-      zonasAfectadas: aiData?.zonasAfectadas || undefined,
+      zonasAfectadas: aiData?.zonasAfectadas || extractZonasFromText(transcription) || undefined,
       refCode: aiData?.refCode || undefined,
       price1: aiData?.price1 || undefined,
       price2: aiData?.price2 || undefined,
