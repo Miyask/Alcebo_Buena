@@ -200,23 +200,21 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       html += `
         <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">RED NETWORK ANTI-PALOMAS:</strong> sus características generales son las siguientes:</p>
         <ul>
-          <li>Base de polietileno trenzado pretratado contra la radiación U.V.</li>
+          <li><img class="bird-float-img" src="${IMAGE_RED_BASE64}" style="width:150px; height:auto; float:left; margin:0 12px 8px 0; border-radius:6px;" />Base de polietileno trenzado pretratado contra la radiación U.V.</li>
           <li>Fijación de la red sobre cable de 2mm. de diámetro con puntos de anclaje de seguridad y pasadores, todos de acero galvanizado.</li>
           <li>Cada hebra se forma por 3 filamentos dobles, confiriendo una resistencia muy superior a la necesaria y un diámetro de fibras que impide a las palomas posarse sobre la red.</li>
           <li>El diámetro del rombo de la red de paloma (50 mm.) impide que las palomas pasen a su través sin disminuir la luminosidad ni la ventilación natural.</li>
         </ul>
-        <img src="${IMAGE_RED_BASE64}" class="document-image" data-img-id="img_system_red" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       `;
     }
     if (activeSystems.includes('Varillas')) {
       html += `
         <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">VARILLAS AVIPOINT :</strong> sus características son las siguientes:</p>
         <ul>
-          <li>Alambre de acero inoxidable 302 de 1,4 mm. Diámetro emportado en una base de policarbonato protegido contra la luz ultravioleta.</li>
+          <li><img class="bird-float-img" src="${IMAGE_VARILLAS_BASE64}" style="width:150px; height:auto; float:left; margin:0 12px 8px 0; border-radius:6px;" />Alambre de acero inoxidable 302 de 1,4 mm. Diámetro emportado en una base de policarbonato protegido contra la luz ultravioleta.</li>
           <li>Punta roma de baja reflectancia que no daña a las aves pero impide su posado.</li>
           <li>Fijación con adhesivo sellador de poliuretano de exteriores.</li>
         </ul>
-        <img src="${IMAGE_VARILLAS_BASE64}" class="document-image" data-img-id="img_system_varillas" style="width:280px; max-width:100%; height:auto; border:1px solid #bec8d2; border-radius:8px;" />
       `;
     }
     if (activeSystems.includes('Eléctrico')) {
