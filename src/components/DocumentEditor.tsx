@@ -525,7 +525,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
           .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
           .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+          .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')
+          .replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
       }
 
       setEditorHtml(docHtml);
@@ -564,7 +565,11 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const plagaParagraphRegex = /<p>Las estimaciones indican que una ciudad media mediterránea posee una población de más de 1500 palomas por kilómetro cuadrado[\s\S]*?aprovechar los desechos animales\.\s*<\/p>/gi;
       const templateWithPlaceholders = WORD_TEMPLATE_HTML
         .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
-        .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
+        .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
+        .replace(
+          /(<p>- Además,[\s\S]*?<\/ul>)(<ol><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+          '$2$1'
+        );
 
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
@@ -655,7 +660,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
         .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
         .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+        .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')
+        .replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
 
       setEditorHtml(wrapImagesInEditor(initialHtml));
     }
@@ -1166,6 +1172,7 @@ JSON keys:
 - "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
 - "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
 - "date": Fecha mencionada de la inspección o visita en formato "YYYY-MM-DD" si se nombra en la transcripción (ej. "2026-07-21"). Si no se nombra, deja este campo vacío o null.
+- "zonasAfectadas": Frase corta (5-12 palabras) que describa las zonas concretas del inmueble donde se observaron las aves, tal y como se mencionan en la transcripción (ej. "el tejado de pizarra y la antena", "las repisas de las ventanas y el alero trasero"). Si no se menciona ninguna zona concreta, usa "varias zonas del edificio".
 
 Transcripción:
 "${transcriptionText}"`;
@@ -1353,7 +1360,11 @@ Transcripción:
           const plagaParagraphRegex = /<p>Las estimaciones indican que una ciudad media mediterránea posee una población de más de 1500 palomas por kilómetro cuadrado[\s\S]*?aprovechar los desechos animales\.\s*<\/p>/gi;
           const templateWithPlaceholders = WORD_TEMPLATE_HTML
             .replace(systemBlockRegex, '<div class="sistemas-block">[DESCRIPCIONES_SISTEMAS]</div>')
-            .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>');
+            .replace(plagaParagraphRegex, '<div class="des-plaga-block">[DESCRIPCION_PLAGA]</div>')
+            .replace(
+              /(<p>- Además,[\s\S]*?<\/ul>)(<ol><li><strong>Propuesta Técnica<\/strong><\/li><\/ol>)/,
+              '$2$1'
+            );
 
           const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
@@ -1373,7 +1384,7 @@ Transcripción:
             .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
             .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
-            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas'}</span>`)
+            .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${(ai && ai.zonasAfectadas) || (primarySys === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
             .replace(/\[INTRO_TECNICA\]/g, `<span class="transcription-field">${textForIntro}</span>`)
             .replace(/\[PROBLEMA_PRINCIPAL\]/g, `<span class="problema-principal-field">${textForProblem}</span>`)
             .replace(/\[DETALLE_ADICIONAL\]/g, `<span class="detalle-adicional-field">${textForDetail}</span>`)
@@ -1393,7 +1404,8 @@ Transcripción:
             .replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<p><strong>1.-  CONTROL DE AVES URBANAS')
             .replace(/<p><strong>2\.- LEGISLACIÓN<\/strong><\/p>/gi, '<hr class="page-break" /><p><strong>2.- LEGISLACIÓN</strong></p>')
             .replace(/<p><strong>4\.- LA ELECCIÓN DEL SISTEMA/gi, '<hr class="page-break" /><p><strong>4.- LA ELECCIÓN DEL SISTEMA')
-            .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS');
+            .replace(/<p><strong>6\.- PRESUPUESTO Y GARANTÍAS/gi, '<p><strong>6.- PRESUPUESTO Y GARANTÍAS')
+            .replace(/<p><strong>ANEXO\s*[–-]\s*Otras Gestiones/gi, '<hr class="page-break" /><p><strong>ANEXO – Otras Gestiones');
  
            const finalHtml = wrapImagesInEditor(freshHtml);
            if (editorRef.current) {
@@ -2052,20 +2064,57 @@ ${cleanedBase64}`);
             if (img) {
               return translateNodeToWordXML(img);
             }
-            
-            let childXml = '';
-            el.childNodes.forEach(child => {
-              childXml += translateNodeToWordXML(child);
-            });
 
             const textContent = el.textContent || '';
             const isSectionHeading = /^\s*\d+\s*[\.-]\s*/.test(textContent) || !!el.querySelector('strong')?.textContent?.match(/^\s*\d+\s*[\.-]\s*/);
-            const beforeSpacing = isSectionHeading ? '360' : '60';
-            const afterSpacing = isSectionHeading ? '140' : '100';
-            
+            const isPriceLine = !!el.querySelector('.price-field-1, .price-field-2, .price-field-3');
+
+            // For price lines, collapse the manually-typed dot/tab leader runs into a sentinel
+            // so they can be swapped for a real Word tab stop (matching the official template,
+            // which uses <w:tab w:val="right" w:leader="dot"/> instead of literal dots).
+            let workEl: HTMLElement = el;
+            if (isPriceLine) {
+              workEl = el.cloneNode(true) as HTMLElement;
+              const walker = document.createTreeWalker(workEl, NodeFilter.SHOW_TEXT);
+              const textNodes: Text[] = [];
+              let n: Node | null;
+              while ((n = walker.nextNode())) textNodes.push(n as Text);
+              textNodes.forEach(tn => {
+                tn.textContent = (tn.textContent || '').replace(/[\t.]{2,}/g, 'TABSTOP');
+              });
+            }
+
+            let childXml = '';
+            workEl.childNodes.forEach(child => {
+              childXml += translateNodeToWordXML(child);
+            });
+
+            if (isPriceLine) {
+              const tabRun = `</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:tab/></w:r><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr><w:t xml:space="preserve">`;
+              childXml = childXml.replace(/TABSTOP/g, tabRun);
+
+              return `<w:p>
+                <w:pPr>
+                  <w:tabs><w:tab w:val="right" w:leader="dot" w:pos="8222"/></w:tabs>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+                </w:pPr>
+                ${childXml}
+              </w:p>`;
+            }
+
+            if (isSectionHeading) {
+              return `<w:p>
+                <w:pPr>
+                  <w:spacing w:line="480" w:lineRule="auto"/>
+                  <w:jc w:val="both"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+                </w:pPr>
+                ${childXml}
+              </w:p>`;
+            }
+
             return `<w:p>
               <w:pPr>
-                <w:spacing w:before="${beforeSpacing}" w:after="${afterSpacing}" w:line="276" w:lineRule="auto"/>
                 <w:jc w:val="both"/>
                 <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
               </w:pPr>
@@ -2115,7 +2164,6 @@ ${cleanedBase64}`);
               listXml += `<w:p>
                 <w:pPr>
                   <w:ind w:left="360" w:hanging="240"/>
-                  <w:spacing w:before="30" w:after="50" w:line="276" w:lineRule="auto"/>
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
@@ -2267,7 +2315,20 @@ ${cleanedBase64}`);
           if (tagName === 'hr' && el.classList.contains('page-break')) {
             return `<w:r><w:br w:type="page"/></w:r>`;
           }
-          
+
+          if (tagName === 'div' && el.classList.contains('image-container-block')) {
+            const containedImg = el.querySelector('img');
+            if (!containedImg) return '';
+            const imgRunXml = translateNodeToWordXML(containedImg);
+            return `<w:p>
+              <w:pPr>
+                <w:jc w:val="center"/>
+                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
+              </w:pPr>
+              ${imgRunXml}
+            </w:p>`;
+          }
+
           let childXml = '';
           el.childNodes.forEach(child => {
             childXml += translateNodeToWordXML(child);
@@ -2408,22 +2469,40 @@ ${cleanedBase64}`);
       // Deduplicate consecutive page breaks anywhere in translatedXML
       translatedXML = translatedXML.replace(/(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*){2,}/g, '<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
       
-      // 1. Remove all standalone page break paragraphs immediately before PRESUPUESTO heading
-      translatedXML = translatedXML.replace(
-        /(?:<w:p><w:r><w:br w:type="page"\/><\/w:r><\/w:p>\s*)+(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:6\.?\s*[\.\-]?\s*PRESUPUESTO|PRESUPUESTO\s*Y\s*GARANT))/gi,
-        '$1'
-      );
-      // 2. Inject native <w:pageBreakBefore/> into paragraph properties of PRESUPUESTO heading so Word cleanly starts it at top of next page with ZERO blank pages!
-      translatedXML = translatedXML.replace(
-        /(<w:p\b[^>]*>(?:\s*<w:pPr>[\s\S]*?<\/w:pPr>|\s*)(?:(?!<\/w:p>)[\s\S])*?(?:6\.?\s*[\.\-]?\s*PRESUPUESTO|PRESUPUESTO\s*Y\s*GARANT))/gi,
-        (match) => {
-          if (match.includes('<w:pPr>')) {
-            return match.replace('<w:pPr>', '<w:pPr><w:pageBreakBefore/>');
-          } else {
-            return match.replace('<w:p', '<w:p><w:pPr><w:pageBreakBefore/></w:pPr>');
+      // 1 & 2. Remove standalone page-break paragraphs immediately before the PRESUPUESTO heading and
+      // inject a native <w:pageBreakBefore/> into that heading's own paragraph properties instead, so
+      // Word cleanly starts it at the top of the next page with ZERO blank pages. Paragraphs are located
+      // one-by-one via a bounded (cannot cross </w:p>) match so only the real "6.- PRESUPUESTO..." heading
+      // paragraph is ever touched — not the "6.  PRESUPUESTO Y GARANTÍAS" table-of-contents entry, and not
+      // some unrelated earlier paragraph.
+      {
+        const paraMatches = [...translatedXML.matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)];
+        const headingIdx = paraMatches.findIndex(m => /6\.-\s*PRESUPUESTO/i.test(m[0]));
+        if (headingIdx !== -1) {
+          const isStandaloneBreak = (p: string) =>
+            /^<w:p\b[^>]*>(?:\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*)?<w:r><w:br w:type="page"\/><\/w:r><\/w:p>$/i.test(p);
+
+          let dropFromIdx = headingIdx;
+          while (
+            dropFromIdx > 0 &&
+            isStandaloneBreak(paraMatches[dropFromIdx - 1][0]) &&
+            translatedXML
+              .slice(paraMatches[dropFromIdx - 1].index! + paraMatches[dropFromIdx - 1][0].length, paraMatches[dropFromIdx].index!)
+              .trim() === ''
+          ) {
+            dropFromIdx--;
           }
+
+          const headingPara = paraMatches[headingIdx][0];
+          const headingWithBreak = headingPara.includes('<w:pPr>')
+            ? headingPara.replace('<w:pPr>', '<w:pPr><w:pageBreakBefore/>')
+            : headingPara.replace('<w:p', '<w:p><w:pPr><w:pageBreakBefore/></w:pPr>');
+
+          const rangeStart = paraMatches[dropFromIdx].index!;
+          const rangeEnd = paraMatches[headingIdx].index! + paraMatches[headingIdx][0].length;
+          translatedXML = translatedXML.slice(0, rangeStart) + headingWithBreak + translatedXML.slice(rangeEnd);
         }
-      );
+      }
 
       // Section properties with titlePg: Page 1 (Portada) has NO top header line or footer number. Pages 2+ get watermark rId22 and page numbers rId99.
       const sectPrXml = '<w:sectPr w:rsidR="00F4195B" w:rsidSect="00577536"><w:headerReference w:type="default" r:id="rId22"/><w:footerReference w:type="default" r:id="rId99"/><w:titlePg/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2892" w:right="1416" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="284"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';

@@ -102,7 +102,6 @@ export default function PresupuestosView({
         quote={activeQuote}
         onSaveQuote={(updatedQuote) => {
           onUpdateQuote(updatedQuote);
-          setIsEditing(false);
         }}
         onCancel={() => setIsEditing(false)}
         templates={templates}

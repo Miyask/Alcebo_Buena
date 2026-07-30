@@ -158,6 +158,8 @@ JSON keys:
 - "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
 - "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
 - "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
+- "date": Fecha mencionada de la inspección o visita en formato "YYYY-MM-DD" si se nombra en la transcripción (ej. "2026-07-21"). Si no se nombra, deja este campo vacío o null.
+- "zonasAfectadas": Frase corta (5-12 palabras) que describa las zonas concretas del inmueble donde se observaron las aves, tal y como se mencionan en la transcripción (ej. "el tejado de pizarra y la antena", "las repisas de las ventanas y el alero trasero"). Si no se menciona ninguna zona concreta, usa "varias zonas del edificio".
 
 Transcripción:
 "${transcriptionText}"`;

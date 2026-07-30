@@ -63,12 +63,6 @@ export default function TopAppBar({
           />
         </div>
 
-        {/* Notifications Icon with active dot */}
-        <button className="relative p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
-          <span className="material-symbols-outlined text-[22px]">notifications</span>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-        </button>
-
         {/* Settings Tab trigger */}
         <button
           onClick={() => setCurrentTab('settings')}
