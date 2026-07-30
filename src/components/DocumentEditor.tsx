@@ -226,16 +226,21 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         html += `<div style="margin-bottom: 22px; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1;">`;
         html += `<h3 style="color: #009FE3; margin-top: 10px; margin-bottom: 8px; font-size: 13pt; font-weight: bold;">${bird.title}</h3>`;
         const paragraphs = bird.text.split('\n\n').filter(p => p.trim());
+        const firstImage = bird.images && bird.images.length > 0 ? bird.images[0] : null;
         paragraphs.forEach((p, idx) => {
-          html += `<p style="margin-bottom: 8px; text-align: justify; line-height: 1.6; font-size: 11pt; color: #334155;">${p.trim()}</p>`;
-          // Place the bird's image(s) right after the first paragraph so they sit within the text
-          // instead of being bunched into a separate row after all the text.
-          if (idx === 0 && bird.images && bird.images.length > 0) {
-            bird.images.forEach((img) => {
-              html += `<div class="bird-image-block" style="text-align: center; margin: 14px auto;"><img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="width:260px; max-width:100%; height:auto; border-radius: 6px;" /></div>`;
-            });
-          }
+          // Float the bird's photo to the left of the first paragraph so the text wraps to its
+          // right, instead of the image sitting in its own block before/after the text.
+          const imgTag = idx === 0 && firstImage
+            ? `<img class="bird-float-img" src="data:${firstImage.mime};base64,${firstImage.base64}" alt="${bird.name}" style="width:150px; height:auto; border-radius: 6px; float: left; margin: 0 12px 8px 0;" />`
+            : '';
+          html += `<p style="margin-bottom: 8px; text-align: justify; line-height: 1.6; font-size: 11pt; color: #334155;">${imgTag}${p.trim()}</p>`;
         });
+        // Any extra photos beyond the first still render centered below the text.
+        if (bird.images && bird.images.length > 1) {
+          bird.images.slice(1).forEach((img) => {
+            html += `<div class="bird-image-block" style="text-align: center; margin: 14px auto;"><img src="data:${img.mime};base64,${img.base64}" alt="${bird.name}" style="width:220px; max-width:100%; height:auto; border-radius: 6px;" /></div>`;
+          });
+        }
         html += `</div>`;
       } else {
         const rule = (rules && rules.length > 0 ? rules : DEFAULT_CONDITIONAL_TEXTS).find(r => r.birdType?.toLowerCase() === key.toLowerCase());
@@ -1260,7 +1265,7 @@ JSON keys:
 - "price2": Precio de la segunda opción o lote completo de presupuesto formateado (ej. "1.090 €").
 - "price3": Precio total sugerido o de la opción elegida formateado (ej. "1.090 €").
 - "refCode": Código de referencia del presupuesto si se menciona (ej. "Ref-ALC-L-2026-0-589").
-- "date": Fecha mencionada de la inspección o visita en formato "YYYY-MM-DD" si se nombra en la transcripción (ej. "2026-07-21"). Si no se nombra, deja este campo vacío o null.
+- "date": Fecha en la que se realizó la visita/inspección, en formato "YYYY-MM-DD", SOLO si se menciona explícitamente como la fecha de la visita (frases como "hoy es...", "estamos a...", "la visita fue el..."). IMPORTANTE: ignora por completo cualquier número que forme parte del NOMBRE DE UNA CALLE O DIRECCIÓN (ej. "Calle 18 de Octubre" es el nombre de una calle, NO una fecha — no la confundas con la fecha de la visita). Si no se menciona una fecha real de la visita, deja este campo vacío o null.
 - "zonasAfectadas": Frase corta (5-12 palabras) que describa las zonas concretas del inmueble donde se observaron las aves, tal y como se mencionan en la transcripción (ej. "el tejado de pizarra y la antena", "las repisas de las ventanas y el alero trasero"). Si no se menciona ninguna zona concreta, usa "varias zonas del edificio".
 
 Transcripción:
@@ -1386,7 +1391,9 @@ Transcripción:
               detectedDate = ai.date;
             }
           } else {
-            const dateRegex = /\b(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
+            // Negative lookbehind avoids matching a street name that happens to contain a date-like
+            // number (e.g. "Calle 18 de Octubre 11" is an address, not the visit date).
+            const dateRegex = /\b(?<!calle\s)(?<!c\/\s?)(\d{1,2})[\s/de]+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s/de]+(\d{2,4})\b/i;
             const matchDate = data.text.match(dateRegex);
             if (matchDate) {
               const day = matchDate[1];
@@ -2114,6 +2121,17 @@ ${cleanedBase64}`);
         return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
       };
 
+      // Floating variant (wp:anchor + wrapSquare) used for bird reference photos: the image is pinned
+      // to the left of its paragraph and the paragraph's own text (plus following paragraphs, per
+      // Word's normal wrap-square behavior) flows around it to the right, instead of the image sitting
+      // on its own line like a regular inline picture.
+      const createFloatingDrawingMLXml = (rId: string, widthPt: number, heightPt: number, name: string) => {
+        const docPrId = ++drawingIdCounter;
+        const cx = Math.round(widthPt * 12700);
+        const cy = Math.round(heightPt * 12700);
+        return `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${docPrId}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:align>left</wp:align></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapSquare wrapText="right"/><wp:docPr id="${docPrId}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
+      };
+
       // Recursive DOM node to Word XML translator with XML escaping
       const translateNodeToWordXML = (node: Node): string => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -2152,7 +2170,10 @@ ${cleanedBase64}`);
           
           if (tagName === 'p') {
             const img = el.querySelector('img');
-            if (img) {
+            // A floating (wrap-square) bird image is meant to sit inline with this paragraph's own
+            // text, not replace it — fall through to the normal paragraph handling below instead of
+            // the image-only shortcut.
+            if (img && !img.classList.contains('bird-float-img')) {
               // Wrap the image in a proper paragraph honoring the <p>'s own alignment (e.g. a
               // right-aligned signature stamp), instead of discarding it as a bare loose run.
               const imgRunXml = translateNodeToWordXML(img);
@@ -2246,12 +2267,18 @@ ${cleanedBase64}`);
           if (tagName === 'ul' || tagName === 'ol') {
             let listXml = '';
             const isUnordered = tagName === 'ul';
-            const items = Array.from(el.children).filter(child => child.tagName.toLowerCase() === 'li');
+            // Skip genuinely empty <li> items (e.g. a stray "<li> </li>" left over as a placeholder in
+            // the template) so they don't render as an orphaned, contentless bullet point.
+            const items = Array.from(el.children).filter(child => child.tagName.toLowerCase() === 'li' && (child.textContent || '').trim() !== '');
             // Respect the HTML "start" attribute (used to continue Diagnóstico -> Propuesta Técnica
             // numbering as 1./2. instead of both restarting at 1, matching the official template where
             // both share one Word list/numId).
             const startAttr = parseInt(el.getAttribute('start') || '1', 10);
             const startNum = isNaN(startAttr) ? 1 : startAttr;
+            // The CONTENIDO (table of contents) list is double line-spaced in the official template
+            // (no before/after, just a tall line height) — every other list uses the compact spacing.
+            const isToc = !isUnordered && el.previousElementSibling && (el.previousElementSibling.textContent || '').trim() === 'CONTENIDO';
+            const listSpacing = isToc ? '<w:spacing w:line="480" w:lineRule="auto"/>' : '<w:spacing w:before="40" w:after="80"/>';
             items.forEach((li, idx) => {
               let liChildXml = '';
               li.childNodes.forEach(c => {
@@ -2266,7 +2293,7 @@ ${cleanedBase64}`);
               listXml += `<w:p>
                 <w:pPr>
                   <w:ind w:left="360" w:hanging="240"/>
-                  <w:spacing w:before="40" w:after="80"/>
+                  ${listSpacing}
                   <w:jc w:val="both"/>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>
                 </w:pPr>
@@ -2406,7 +2433,10 @@ ${cleanedBase64}`);
                 if (aspectRatio < 0.3) aspectRatio = 0.3;
 
                 const heightPt = widthPt * aspectRatio;
-                
+
+                if (el.classList.contains('bird-float-img')) {
+                  return createFloatingDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
+                }
                 return createDrawingMLXml(bRelId, widthPt, heightPt, 'Imagen');
               } catch (imgErr) {
                 console.error('Error processing img element for Word export:', imgErr);
