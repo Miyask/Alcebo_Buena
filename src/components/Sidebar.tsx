@@ -12,10 +12,12 @@ export default function Sidebar({ currentTab, setCurrentTab }: SidebarProps) {
   const mainItems = [
     { id: 'dashboard', name: '🎤 Crear Presupuesto', icon: 'mic', desc: 'Por voz o audio' },
     { id: 'presupuestos', name: '📂 Ver Presupuestos', icon: 'description', desc: 'Historial y editor' },
-    { id: 'settings', name: '⚙️ Ajustes', icon: 'settings', desc: 'Clave de licencia' },
   ];
 
+  // Ajustes (API keys) lives here now, out of the main nav — the app already works out of the box
+  // with a server-configured key, so regular users never need to touch this.
   const advancedItems = [
+    { id: 'settings', name: '⚙️ Ajustes', icon: 'settings', desc: 'Clave de licencia (opcional)' },
     { id: 'plantillas', name: '📝 Plantillas Word', icon: 'auto_stories', desc: 'Editar textos base' },
     { id: 'condicionales', name: '🔀 Reglas de Texto', icon: 'article_shortcut', desc: 'Textos por especie' },
   ];

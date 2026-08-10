@@ -110,101 +110,70 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // File Upload flow
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Transcribes + AI-parses a single file, returning its raw text and (if available) the structured data.
+  const transcribeOneFile = async (file: File, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed: any }> => {
+    const { blob: compressedBlob } = await extractAudioFromMediaFile(file);
 
-    setFileName(file.name);
-    setIsProcessing(true);
-    setProgress(10);
-    setTranscription('');
-    setClientName('');
-    setClientAddress('');
-    setNotes('');
-
-    try {
-      const { blob: compressedBlob } = await extractAudioFromMediaFile(
-        file,
-        (percent) => setProgress(percent)
-      );
-      setProgress(65);
-
-      const userKey = config?.groqApiKey?.trim();
-      const userLlmKey = config?.llmApiKey?.trim();
-
+    const base64Uri: string = await new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
       reader.readAsDataURL(compressedBlob);
-      reader.onload = async () => {
-        const base64Uri = reader.result as string;
+    });
 
+    const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: uri, name: filename, apiKey: key, llmApiKey: llmKey }),
+      });
+
+      const rawText = await response.text().catch(() => '');
+      if (!response.ok) {
+        let errMsg = 'Error al transcribir el archivo.';
+        if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
+          throw new Error(`El archivo "${filename}" es demasiado grande para el servidor de Vercel (límite de 4.5MB en Base64).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (.mp3, .m4a) que son mucho más ligeros y no fallan.`);
+        }
         try {
-          let data: { text: string; aiParsed?: any } = { text: '' };
+          const errData = JSON.parse(rawText);
+          errMsg = errData.error || errData.details || errMsg;
+        } catch (jsonErr) {
+          errMsg = rawText || errMsg;
+        }
+        throw new Error(errMsg);
+      }
 
-          const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
-            const response = await fetch('/api/transcribe', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                file: uri,
-                name: filename,
-                apiKey: key,
-                llmApiKey: llmKey,
-              }),
-            });
+      try {
+        return JSON.parse(rawText);
+      } catch (e) {
+        throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
+      }
+    };
 
-            const rawText = await response.text().catch(() => '');
-            if (!response.ok) {
-              let errMsg = 'Error al transcribir el archivo.';
-              if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
-                throw new Error('El archivo es demasiado grande para el servidor de Vercel (límite de 4.5MB en Base64).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (.mp3, .m4a) que son mucho más ligeros y no fallan.');
-              }
-              try {
-                const errData = JSON.parse(rawText);
-                errMsg = errData.error || errData.details || errMsg;
-              } catch (jsonErr) {
-                errMsg = rawText || errMsg;
-              }
-              throw new Error(errMsg);
-            }
+    if (userKey && userKey.startsWith('gsk_')) {
+      console.log('Utilizando transcripción directa en panel principal (Groq)...');
+      try {
+        const fileBlob = await (await fetch(base64Uri)).blob();
+        const formData = new FormData();
+        formData.append('file', fileBlob, 'audio.wav');
+        formData.append('model', 'whisper-large-v3');
+        formData.append('language', 'es');
 
-            try {
-              return JSON.parse(rawText);
-            } catch (e) {
-              throw new Error('La respuesta del servidor no tiene un formato JSON válido.');
-            }
-          };
+        const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${userKey}` },
+          body: formData
+        });
 
-          if (userKey && userKey.startsWith('gsk_')) {
-            console.log('Utilizando transcripción directa en panel principal (Groq)...');
-            try {
-              const fileBlob = await (await fetch(base64Uri)).blob();
-              const formData = new FormData();
-              formData.append('file', fileBlob, 'audio.wav');
-              formData.append('model', 'whisper-large-v3');
-              formData.append('language', 'es');
+        if (!whisperRes.ok) {
+          const textErr = await whisperRes.text();
+          throw new Error(`Groq Whisper falló: ${textErr}`);
+        }
 
-              const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${userKey}`
-                },
-                body: formData
-              });
+        const whisperData = await whisperRes.json();
+        const transcriptionText = whisperData.text;
 
-              if (!whisperRes.ok) {
-                const textErr = await whisperRes.text();
-                throw new Error(`Groq Whisper falló: ${textErr}`);
-              }
-
-              const whisperData = await whisperRes.json();
-              const transcriptionText = whisperData.text;
-
-              setProgress(65);
-
-              const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
+        const prompt = `Analiza la siguiente transcripción de una visita técnica para control de aves y extrae la información en un objeto JSON con el siguiente formato estricto. No incluyas explicaciones ni formato markdown (como backticks o la palabra json), devuelve únicamente un objeto JSON válido.
 
 JSON keys:
 - "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Avión Común".
@@ -226,75 +195,113 @@ JSON keys:
 Transcripción:
 "${transcriptionText}"`;
 
-              const finalLlmKey = userLlmKey || userKey;
-              const isLlmGroq = finalLlmKey.startsWith('gsk_');
-              const llmUrl = isLlmGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-              const llmModel = isLlmGroq ? 'llama-3.3-70b-versatile' : 'meta-llama/llama-3.3-70b-instruct';
+        const finalLlmKey = userLlmKey || userKey;
+        const isLlmGroq = finalLlmKey.startsWith('gsk_');
+        const llmUrl = isLlmGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+        const llmModel = isLlmGroq ? 'llama-3.3-70b-versatile' : 'meta-llama/llama-3.3-70b-instruct';
 
-              const llmRes = await fetch(llmUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${finalLlmKey}`,
-                  'Content-Type': 'application/json',
-                  ...(isLlmGroq ? {} : {
-                    'HTTP-Referer': 'https://alcebo-technical-quotes.vercel.app',
-                    'X-Title': 'Alcebo Quotes'
-                  })
-                },
-                body: JSON.stringify({
-                  model: llmModel,
-                  messages: [{ role: 'user', content: prompt }],
-                  temperature: 0.1,
-                  response_format: { type: 'json_object' }
-                })
-              });
+        const llmRes = await fetch(llmUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${finalLlmKey}`,
+            'Content-Type': 'application/json',
+            ...(isLlmGroq ? {} : {
+              'HTTP-Referer': 'https://alcebo-technical-quotes.vercel.app',
+              'X-Title': 'Alcebo Quotes'
+            })
+          },
+          body: JSON.stringify({
+            model: llmModel,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
+          })
+        });
 
-              let aiParsed = null;
-              if (llmRes.ok) {
-                const llmData = await llmRes.json();
-                const rawJsonText = llmData.choices[0].message.content.trim();
-                aiParsed = JSON.parse(rawJsonText);
-              }
-
-              data = { text: transcriptionText, aiParsed };
-            } catch (directErr) {
-              console.warn('Llamada directa a Groq falló, recurriendo al servidor proxy...', directErr);
-              data = await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
-            }
-          } else {
-            data = await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
-          }
-
-          const ai = data.aiParsed;
-          setProgress(100);
-          setTimeout(() => {
-            setIsProcessing(false);
-            setTranscription(data.text);
-            if (ai) {
-              setAiData(ai);
-              if (ai.clientName) setClientName(ai.clientName);
-              if (ai.clientAddress) setClientAddress(ai.clientAddress);
-              if (ai.detectedBird) setDetectedBirds([ai.detectedBird]);
-              if (ai.detectedSystems) setDetectedSystems(ai.detectedSystems);
-              if (ai.meters) setMeters(ai.meters);
-              if (ai.introTecnica) setNotes(ai.introTecnica);
-            }
-            showToast('¡Vídeo/Audio transcrito con éxito!');
-          }, 300);
-
-        } catch (err: any) {
-          console.error('File transcription failed:', err);
-          setProgress(100);
-          setTimeout(() => {
-            setIsProcessing(false);
-            alert(`Error de Transcripción:\n${err.message || 'Hubo un fallo al procesar la grabación.'}`);
-          }, 200);
+        let aiParsed = null;
+        if (llmRes.ok) {
+          const llmData = await llmRes.json();
+          const rawJsonText = llmData.choices[0].message.content.trim();
+          aiParsed = JSON.parse(rawJsonText);
         }
-      };
-    } catch (error: any) {
-      console.error('File reading failed:', error);
-      alert(`Error al procesar el archivo:\n${error.message}`);
-      setIsProcessing(false);
+
+        return { text: transcriptionText, aiParsed };
+      } catch (directErr) {
+        console.warn('Llamada directa a Groq falló, recurriendo al servidor proxy...', directErr);
+        return await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+      }
+    }
+    return await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+  };
+
+  // Merge structured data extracted from several clips of the same visit: first non-empty value wins
+  // per field, arrays (systems) get unioned.
+  const mergeAiParsed = (a: any, b: any): any => {
+    if (!a) return b;
+    if (!b) return a;
+    const merged: any = { ...a };
+    Object.keys(b).forEach(key => {
+      if (merged[key] === undefined || merged[key] === null || merged[key] === '') {
+        merged[key] = b[key];
+      } else if (key === 'detectedSystems' && Array.isArray(merged[key]) && Array.isArray(b[key])) {
+        merged[key] = Array.from(new Set([...merged[key], ...b[key]]));
+      }
+    });
+    return merged;
+  };
+
+  // File Upload flow — supports selecting several clips of the same visit (e.g. when a recording got
+  // cut off partway through) and combines them into one transcript/quote.
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files: File[] = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setFileName(files.length > 1 ? `${files.length} archivos (${files.map(f => f.name).join(', ')})` : files[0].name);
+    setIsProcessing(true);
+    setProgress(5);
+    setTranscription('');
+    setClientName('');
+    setClientAddress('');
+    setNotes('');
+
+    const userKey = config?.groqApiKey?.trim();
+    const userLlmKey = config?.llmApiKey?.trim();
+
+    try {
+      const texts: string[] = [];
+      let combinedAi: any = null;
+
+      for (let i = 0; i < files.length; i++) {
+        const { text, aiParsed } = await transcribeOneFile(files[i], userKey, userLlmKey);
+        texts.push(text);
+        combinedAi = mergeAiParsed(combinedAi, aiParsed);
+        setProgress(Math.round(((i + 1) / files.length) * 95));
+      }
+
+      const combinedText = texts.filter(t => t && t.trim()).join('\n\n');
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setTranscription(combinedText);
+        if (combinedAi) {
+          setAiData(combinedAi);
+          if (combinedAi.clientName) setClientName(combinedAi.clientName);
+          if (combinedAi.clientAddress) setClientAddress(combinedAi.clientAddress);
+          if (combinedAi.detectedBird) setDetectedBirds([combinedAi.detectedBird]);
+          if (combinedAi.detectedSystems) setDetectedSystems(combinedAi.detectedSystems);
+          if (combinedAi.meters) setMeters(combinedAi.meters);
+          if (combinedAi.introTecnica) setNotes(combinedAi.introTecnica);
+        }
+        showToast(files.length > 1 ? `¡${files.length} vídeos/audios transcritos y combinados con éxito!` : '¡Vídeo/Audio transcrito con éxito!');
+      }, 300);
+
+    } catch (err: any) {
+      console.error('File transcription failed:', err);
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        alert(`Error de Transcripción:\n${err.message || 'Hubo un fallo al procesar la grabación.'}`);
+      }, 200);
     }
   };
 
@@ -446,6 +453,7 @@ Transcripción:
             onChange={handleFileChange}
             className="hidden"
             accept="audio/*,video/*"
+            multiple
           />
 
           <button
@@ -453,11 +461,11 @@ Transcripción:
             className="w-28 h-28 rounded-full bg-[#e6f4ff] hover:bg-[#cbe7ff] text-[#009fe3] flex flex-col items-center justify-center cursor-pointer active:scale-95 shadow-3xs transition-all hover:scale-105"
           >
             <span className="material-symbols-outlined text-[48px] leading-none mb-1">movie</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider">Subir Archivo</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Subir Archivo(s)</span>
           </button>
 
           <span className="text-[10px] text-slate-450 font-semibold bg-slate-50 border border-slate-150 px-3 py-1.5 rounded-full uppercase tracking-wider">
-            Formatos de vídeo y audio compatibles
+            Puedes seleccionar varios si la grabación se cortó
           </span>
         </div>
       )}

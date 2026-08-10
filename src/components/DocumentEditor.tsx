@@ -1183,39 +1183,37 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   };
 
-  // Auto-fill from video/audio transcription
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessingVideo(true);
-    setVideoProgress(10);
-
-    try {
-      showToast('⚡ Reduciendo y comprimiendo archivo de vídeo/audio en tu navegador...');
-      const { blob: compressedBlob, originalSizeMB, compressedSizeMB, ratio } = await extractAudioFromMediaFile(
-        file,
-        (percent) => setVideoProgress(percent)
-      );
-
-      if (Number(ratio) > 0) {
-        showToast(`✅ Vídeo reducido de ${originalSizeMB} MB a ${compressedSizeMB} MB (-${ratio}%)`);
+  // Merge structured data extracted from several clips of the same visit: first non-empty value wins
+  // per field, arrays (systems) get unioned.
+  const mergeAiParsedInEditor = (a: any, b: any): any => {
+    if (!a) return b;
+    if (!b) return a;
+    const merged: any = { ...a };
+    Object.keys(b).forEach(key => {
+      if (merged[key] === undefined || merged[key] === null || merged[key] === '') {
+        merged[key] = b[key];
+      } else if (key === 'detectedSystems' && Array.isArray(merged[key]) && Array.isArray(b[key])) {
+        merged[key] = Array.from(new Set([...merged[key], ...b[key]]));
       }
+    });
+    return merged;
+  };
 
-      setVideoProgress(65);
+  // Transcribes + AI-parses a single file, returning its raw text and (if available) the structured data.
+  const transcribeOneFileInEditor = async (file: File, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed?: any }> => {
+    const { blob: compressedBlob } = await extractAudioFromMediaFile(file);
 
-      const userKey = config?.groqApiKey?.trim();
-      const userLlmKey = config?.llmApiKey?.trim();
-
+    const base64Uri: string = await new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
       reader.readAsDataURL(compressedBlob);
-      reader.onload = async () => {
-        const base64Uri = reader.result as string;
-        
-        try {
-          let data: { text: string; aiParsed?: any } = { text: '' };
+    });
 
-          const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
+    {
+      let data: { text: string; aiParsed?: any } = { text: '' };
+
+      const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
             const response = await fetch('/api/transcribe', {
               method: 'POST',
               headers: {
@@ -1339,11 +1337,44 @@ Transcripción:
             data = await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
           }
 
-          setVideoProgress(100);
-          
-          // Auto-fill extraction logic
-          const textLower = data.text.toLowerCase();
-          const ai = data.aiParsed;
+          return data;
+    }
+  };
+
+  // Auto-fill from video/audio transcription — supports selecting several clips of the same visit
+  // (e.g. when a recording got cut off partway through) and combines them into one document.
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files: File[] = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsProcessingVideo(true);
+    setVideoProgress(10);
+
+    try {
+      showToast(files.length > 1 ? `⚡ Reduciendo y comprimiendo ${files.length} archivos en tu navegador...` : '⚡ Reduciendo y comprimiendo archivo de vídeo/audio en tu navegador...');
+
+      const userKey = config?.groqApiKey?.trim();
+      const userLlmKey = config?.llmApiKey?.trim();
+
+      const texts: string[] = [];
+      let combinedAi: any = null;
+      for (let i = 0; i < files.length; i++) {
+        const result = await transcribeOneFileInEditor(files[i], userKey, userLlmKey);
+        texts.push(result.text);
+        combinedAi = mergeAiParsedInEditor(combinedAi, result.aiParsed);
+        setVideoProgress(Math.round(((i + 1) / files.length) * 95));
+      }
+
+      const data: { text: string; aiParsed?: any } = {
+        text: texts.filter(t => t && t.trim()).join('\n\n'),
+        aiParsed: combinedAi,
+      };
+
+      setVideoProgress(100);
+
+      // Auto-fill extraction logic
+      const textLower = data.text.toLowerCase();
+      const ai = data.aiParsed;
 
           // 1. Bird detection
           let detectedBird = 'Palomas';
@@ -1550,19 +1581,13 @@ Transcripción:
              showToast('¡Presupuesto rellenado con éxito desde el audio!');
            }, 300);
  
-         } catch (err: any) {
-           console.error('Video auto-fill failed:', err);
-           setVideoProgress(100);
-           setTimeout(() => {
-             setIsProcessingVideo(false);
-             alert(`Error al procesar el vídeo:\n${err.message}`);
-           }, 200);
-         }
-      };
-    } catch (error: any) {
-      console.error('File reading failed:', error);
-      alert(`Error al procesar el archivo:\n${error.message}`);
-      setIsProcessingVideo(false);
+    } catch (err: any) {
+      console.error('Video auto-fill failed:', err);
+      setVideoProgress(100);
+      setTimeout(() => {
+        setIsProcessingVideo(false);
+        alert(`Error al procesar el vídeo:\n${err.message}`);
+      }, 200);
     }
   };
 
@@ -2777,14 +2802,15 @@ ${cleanedBase64}`);
               onChange={handleVideoUpload}
               accept="audio/*,video/*"
               className="hidden"
+              multiple
             />
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 sm:flex-initial bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
-              title="Subir vídeo o audio de inspección (Límite: 4.5MB en Vercel, o hasta 25MB con tu clave de Groq en Ajustes)"
+              title="Sube uno o varios vídeos/audios de inspección (puedes seleccionar varios si la grabación se cortó). Límite: 4.5MB en Vercel por archivo, o hasta 25MB con tu clave de Groq en Ajustes"
             >
               <span className="material-symbols-outlined text-sm">cloud_upload</span>
-              {isProcessingVideo ? `Procesando... ${videoProgress}%` : 'Subir Vídeo/Audio (Máx. 4.5MB)'}
+              {isProcessingVideo ? `Procesando... ${videoProgress}%` : 'Subir Vídeo(s)/Audio(s)'}
             </button>
 
             <button
