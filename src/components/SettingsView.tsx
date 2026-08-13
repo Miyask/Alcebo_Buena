@@ -88,6 +88,9 @@ export default function SettingsView({ config, onSaveConfig }: SettingsViewProps
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Introduce clave de Groq o OpenRouter (deja vacío para usar la de fábrica)"
                   className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-700 focus:border-[#009fe3] focus:ring-1 focus:ring-[#009fe3]/30 outline-none"
+                  autoComplete="new-password"
+                  data-1p-ignore
+                  data-lpignore="true"
                 />
                 <button
                   type="button"
@@ -116,6 +119,9 @@ export default function SettingsView({ config, onSaveConfig }: SettingsViewProps
                   onChange={(e) => setLlmApiKey(e.target.value)}
                   placeholder="Introduce clave de OpenRouter o Groq (deja vacío para usar la de fábrica)"
                   className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-700 focus:border-[#009fe3] focus:ring-1 focus:ring-[#009fe3]/30 outline-none"
+                  autoComplete="new-password"
+                  data-1p-ignore
+                  data-lpignore="true"
                 />
               </div>
             </div>

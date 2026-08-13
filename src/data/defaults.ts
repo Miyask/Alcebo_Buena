@@ -1,8 +1,13 @@
 import { Quote, Template, ConditionalText, SystemConfig } from '../types';
 
+// Deliberately empty: the "factory" key lives server-side only (GROQ_API_KEY env var, read by
+// api/transcribe.ts / server.ts) and is never sent to the browser. A VITE_-prefixed env var would
+// get baked into the public JS bundle at build time, exposing it to anyone — so it must never be
+// used here, even as a fallback. The app already works with zero setup via the server-side key;
+// nobody needs to see or fill in Ajustes.
 export const DEFAULT_CONFIG: SystemConfig = {
-  groqApiKey: import.meta.env.VITE_GROQ_API_KEY || '',
-  llmApiKey: import.meta.env.VITE_LLM_API_KEY || '',
+  groqApiKey: '',
+  llmApiKey: '',
   baseUrl: 'https://api.groq.com/openai/v1',
   isWhisperActive: true,
 };
