@@ -2193,6 +2193,15 @@ ${cleanedBase64}`);
         return xml
           .replace(/Com\.\s*Prop\.\s*(?:<[^>]+>)*\s*(?:@{8,11}|COMUNIDAD DE PROPIETARIOS[^<]*)/gi, `Com. Prop. ${escapeXml(cleanClientName)}`)
           .replace(/C\/\s*(?:<[^>]+>)*\s*(?:@{8,11}|Calle[^\n<]*|Calle Guadalajara 12, Baraquies)/gi, `C/ ${escapeXml(cleanClientAddress)}`)
+          // The embedded template splits the postal code across two runs — "28" in one run, then
+          // "001   Madrid" in the next — so the leading "28" survives untouched unless it's replaced
+          // together with its own run. Rewrite both runs as a unit: first 2 digits in the first run,
+          // remaining 3 digits + the real city in the second.
+          .replace(
+            /(<w:t[^>]*>)28(<\/w:t><\/w:r><w:r[^>]*>(?:(?!<w:t)[\s\S])*?<w:t[^>]*>)001(\s{2,})Madrid\b/g,
+            (_m, openTag1, between, spaces) =>
+              `${openTag1}${escapeXml(cleanPostalCode.substring(0, 2))}${between}${escapeXml(cleanPostalCode.substring(2))}${spaces}${escapeXml(cleanCity)}`
+          )
           // The embedded template's postal-code run keeps "Madrid" glued to the literal digits in
           // the same text node ("001   Madrid" or a redacted "@@@@   Madrid") — swap the city out
           // first so it isn't left stranded once the digits themselves get replaced below.
