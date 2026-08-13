@@ -41,6 +41,22 @@ const extractZonasFromText = (text: string): string | null => {
   return found.slice(0, 3).join(' y ');
 };
 
+// The cover page used to hardcode "Madrid" as the city, which is wrong whenever the visit is in
+// Toledo or any other province — derive the real town/city from the client address instead (it's
+// normally written as "...calle..., Localidad", matching the format the AI is asked to return), and
+// fall back to a clearly-editable placeholder (not a silently-wrong default) when it can't be found.
+const extractCityFromAddress = (address: string): string | null => {
+  if (!address) return null;
+  const lastPart = address.split(',').pop()?.trim() || '';
+  const cleaned = lastPart.replace(/\b\d{4,5}\b/g, '').trim();
+  if (cleaned && /^[A-Za-zÀ-ÿ\s.'-]+$/.test(cleaned) && cleaned.length >= 3 && cleaned.length <= 40) {
+    return cleaned;
+  }
+  return null;
+};
+const resolveCity = (aiCity: string | null | undefined, address: string): string =>
+  (aiCity && aiCity.trim()) || extractCityFromAddress(address) || '[LOCALIDAD]';
+
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
 let IMAGE_VARILLAS_BASE64 = '';
@@ -573,7 +589,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
@@ -705,13 +721,16 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalPostalCode = quote.postalCode || clientAddressInput.match(/\b\d{5}\b/)?.[0] || '28001';
+      const finalPostalPrefix = finalPostalCode.substring(0, 3) + '00';
 
       let initialHtml = templateWithPlaceholders
         .replace(/\[REF_CODE\]/g, `<span class="ref-code-field">${finalRefCode}</span>`)
         .replace(/\[CLIENT_NAME\]/g, `<span class="client-name-field">${clientNameInput.toUpperCase()}</span>`)
         .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${clientAddressInput}</span>`)
-        .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">28001</span>`)
-        .replace(/\[POSTAL_CODE_PREFIX\]/g, `<span class="postal-code-prefix-field">280</span>`)
+        .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">${finalPostalCode}</span>`)
+        .replace(/\[POSTAL_CODE_PREFIX\]/g, `<span class="postal-code-prefix-field">${finalPostalPrefix}</span>`)
+        .replace(/\[CITY\]/g, `<span class="city-field">${escapeXml(resolveCity(quote.city, clientAddressInput))}</span>`)
         .replace(/\[ATT_NAME\]/g, `<span class="att-name-field">Presidente / Administrador de Fincas</span>`)
         .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
         .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
@@ -751,7 +770,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
@@ -773,7 +792,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> Madrid</div>
+              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
@@ -1273,6 +1292,7 @@ JSON keys:
 - "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
+- "city": Localidad o municipio de la visita (NO asumas Madrid por defecto; puede ser cualquier pueblo o ciudad de España, ej. "Toledo", "Talavera de la Reina", "Illescas"). Si no se menciona explícitamente, deriva la más probable a partir de la dirección o deja el campo vacío.
 - "postalCode": Código postal de 5 dígitos si se menciona, ej. "28008".
 - "meters": Metros lineales o cantidad numérica estimada que se mencione (número entero).
 - "introTecnica": Resumen técnico profesional descriptivo y amplio (de 2 a 4 líneas de longitud), redactado en tercera persona del plural ("pudimos comprobar cómo..."). IMPORTANTE: Debes REESCRIBIR y RESUMIR en detalle la descripción coloquial del técnico. Explica las zonas observadas (como tejados, aleros, canalones o antenas) y los rastros de las aves. Elimina muletillas, repeticiones, fechas de la visita y direcciones. El texto resultante debe ser formal, técnico, detallado y fluido al concatenarse con "Durante la visita realizada pudimos comprobar cómo...". Ejemplo: "las aves se posan de manera recurrentemente en todo el borde del tejado de pizarra y en la antena del edificio contiguo, acumulando gran cantidad de excrementos en los bordes y terrazas inferiores, lo que degrada la salubridad y la estética de la fachada".
@@ -1542,6 +1562,7 @@ Transcripción:
             .replace(/\[CLIENT_ADDRESS\]/g, `<span class="client-address-field">${detectedAddress}</span>`)
             .replace(/\[POSTAL_CODE\]/g, `<span class="postal-code-field">${pcp}</span>`)
             .replace(/\[POSTAL_CODE_PREFIX\]/g, `<span class="postal-code-prefix-field">${pcpPrefix}</span>`)
+            .replace(/\[CITY\]/g, `<span class="city-field">${escapeXml(resolveCity(ai && ai.city, detectedAddress))}</span>`)
             .replace(/\[ATT_NAME\]/g, `<span class="att-name-field">Presidente / Administrador de Fincas</span>`)
             .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
             .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)

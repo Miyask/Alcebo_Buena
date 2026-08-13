@@ -177,6 +177,7 @@ JSON keys:
 - "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
+- "city": Localidad o municipio de la visita (NO asumas Madrid por defecto; puede ser cualquier pueblo o ciudad de España, ej. "Toledo", "Talavera de la Reina", "Illescas"). Si no se menciona explícitamente, deriva la más probable a partir de la dirección o deja el campo vacío.
 - "postalCode": Código postal de 5 dígitos si se menciona, ej. "28008".
 - "meters": Metros lineales o cantidad numérica estimada que se mencione (número entero).
 - "introTecnica": Resumen técnico profesional descriptivo y amplio (de 2 a 4 líneas de longitud), redactado en tercera persona del plural ("pudimos comprobar cómo..."). IMPORTANTE: Debes REESCRIBIR y RESUMIR en detalle la descripción coloquial del técnico. Explica las zonas observadas (como tejados, aleros, canalones o antenas) y los rastros de las aves. Elimina muletillas, repeticiones, fechas de la visita y direcciones. El texto resultante debe ser formal, técnico, detallado y fluido al concatenarse con "Durante la visita realizada pudimos comprobar cómo...". Ejemplo: "las aves se posan de manera recurrentemente en todo el borde del tejado de pizarra y en la antena del edificio contiguo, acumulando gran cantidad de excrementos en los bordes y terrazas inferiores, lo que degrada la salubridad y la estética de la fachada".
@@ -380,6 +381,8 @@ Transcripción:
       problemaPrincipal: aiData?.problemaPrincipal || undefined,
       detalleAdicional: aiData?.detalleAdicional || undefined,
       zonasAfectadas: aiData?.zonasAfectadas || extractZonasFromText(transcription) || undefined,
+      city: aiData?.city || undefined,
+      postalCode: aiData?.postalCode || undefined,
       refCode: aiData?.refCode || undefined,
       price1: aiData?.price1 || undefined,
       price2: aiData?.price2 || undefined,

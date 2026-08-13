@@ -18,6 +18,8 @@ export interface Quote {
   problemaPrincipal?: string;
   detalleAdicional?: string;
   zonasAfectadas?: string;
+  city?: string;
+  postalCode?: string;
   refCode?: string;
   price1?: string;
   price2?: string;
