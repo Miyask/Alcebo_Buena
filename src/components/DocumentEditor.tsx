@@ -639,6 +639,20 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       if (!/<hr class="page-break"\s*\/>\s*<p><strong>1\.-  CONTROL DE AVES URBANAS/i.test(docHtml)) {
         docHtml = docHtml.replace(/<p><strong>1\.-  CONTROL DE AVES URBANAS/gi, '<hr class="page-break" /><p><strong>1.-  CONTROL DE AVES URBANAS');
       }
+      // Drafts saved before the city fix still have "Madrid" hardcoded in the diagnosis intro
+      // paragraph and/or the cover box — swap it for the real (or clearly-editable) locality.
+      if (/en Madrid, se observó/i.test(docHtml)) {
+        docHtml = docHtml.replace(
+          /en Madrid, se observó/gi,
+          `en <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span>, se observó`
+        );
+      }
+      if (/(<div>[^<]*<span class="postal-code-prefix-field">[^<]*<\/span><span class="postal-code-field">[^<]*<\/span>)\s*Madrid(\s*<\/div>)/i.test(docHtml)) {
+        docHtml = docHtml.replace(
+          /(<div>[^<]*<span class="postal-code-prefix-field">[^<]*<\/span><span class="postal-code-field">[^<]*<\/span>)\s*Madrid(\s*<\/div>)/i,
+          `$1 <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span>$2`
+        );
+      }
       // The official template numbers these as "5.1 Diagnóstico" / "5.2 Propuesta Técnica" (subsections
       // of section 5), not as an independently-numbered list — replace the <ol><li> markup with plain
       // labeled headings so they never render as two separate "1."s.
@@ -2160,15 +2174,29 @@ ${cleanedBase64}`);
       const monthStr = monthNames[today.getMonth()];
       const yearStr = today.getFullYear().toString().substring(2);
 
+      // Prefer whatever the user actually sees/edited on screen for postal code and city (the
+      // .postal-code-field / .city-field spans), falling back to derived values, so a manual
+      // correction in the editor always wins in the exported .docx too.
+      const domPostalCode = editorRef.current?.querySelector('.postal-code-prefix-field, .postal-code-field')
+        ? (editorRef.current.querySelector('.postal-code-prefix-field')?.textContent || '') +
+          (editorRef.current.querySelector('.postal-code-field')?.textContent || '')
+        : '';
+      const domCity = editorRef.current?.querySelector('.city-field')?.textContent || '';
+
       const applyPlaceholders = (xml: string): string => {
         if (!xml) return '';
         const cleanClientName = clientNameInput.trim() ? clientNameInput.toUpperCase() : 'COMUNIDAD DE PROPIETARIOS';
         const cleanClientAddress = clientAddressInput.trim() ? clientAddressInput : 'Dirección no especificada';
-        const cleanPostalCode = '28001';
+        const cleanPostalCode = domPostalCode.trim() || quote.postalCode || clientAddressInput.match(/\b\d{5}\b/)?.[0] || '28001';
+        const cleanCity = resolveCity(domCity.trim() || quote.city, clientAddressInput);
 
         return xml
           .replace(/Com\.\s*Prop\.\s*(?:<[^>]+>)*\s*(?:@{8,11}|COMUNIDAD DE PROPIETARIOS[^<]*)/gi, `Com. Prop. ${escapeXml(cleanClientName)}`)
           .replace(/C\/\s*(?:<[^>]+>)*\s*(?:@{8,11}|Calle[^\n<]*|Calle Guadalajara 12, Baraquies)/gi, `C/ ${escapeXml(cleanClientAddress)}`)
+          // The real template's redacted postal-code run keeps "Madrid" glued to the masked digits
+          // in the same text node (e.g. "@@@@   Madrid") — swap the city out first so the generic
+          // "@{4}" postal-code replacement below doesn't leave the old city name stranded next to it.
+          .replace(/(@{4}[^<]*?)Madrid\b/gi, (_m, prefix) => prefix + escapeXml(cleanCity))
           .replace(/28@{4}|28001/g, escapeXml(cleanPostalCode))
           .replace(/(?:Ref:|Ref-)\s*(?:(?!<\/w:p>)[\s\S])*?(?:@{8,11}|q-\d+|Ref-[A-Z0-9-]+)/gi, `Ref: ${escapeXml(finalRefCode)}`)
           .replace(/@{11}/g, escapeXml(finalRefCode))
@@ -2177,7 +2205,8 @@ ${cleanedBase64}`);
           .replace(/\[REF_CODE\]/g, escapeXml(finalRefCode))
           .replace(/\[CLIENT_NAME\]/g, escapeXml(cleanClientName))
           .replace(/\[CLIENT_ADDRESS\]/g, escapeXml(cleanClientAddress))
-          .replace(/\[POSTAL_CODE\]/g, '28001')
+          .replace(/\[POSTAL_CODE\]/g, escapeXml(cleanPostalCode))
+          .replace(/\[CITY\]/g, escapeXml(cleanCity))
           .replace(/\[DAY\]/g, escapeXml(dayStr))
           .replace(/\[MONTH\]/g, escapeXml(monthStr))
           .replace(/\[YEAR\]/g, escapeXml(yearStr));
