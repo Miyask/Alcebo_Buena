@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Quote, SystemConfig } from '../types';
-import { extractAudioFromMediaFile } from '../utils/audioCompressor';
+import { extractAudioChunksFromMediaFile } from '../utils/audioCompressor';
 
 interface DashboardViewProps {
   onAddQuote: (newQuote: Quote) => void;
@@ -110,29 +110,27 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Transcribes + AI-parses a single file, returning its raw text and (if available) the structured data.
-  const transcribeOneFile = async (file: File, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed: any }> => {
-    const { blob: compressedBlob } = await extractAudioFromMediaFile(file);
-
-    const base64Uri: string = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
-      reader.readAsDataURL(compressedBlob);
-    });
-
-    const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
+  // Transcribes + AI-parses a single (already-compressed) audio chunk, returning its raw text and
+  // (if available) the structured data. Sent as a raw binary POST — not base64 JSON — so it doesn't
+  // pay the ~33% base64 size penalty against Vercel's ~4.5MB serverless body limit.
+  const transcribeOneChunk = async (blob: Blob, filename: string, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed: any }> => {
+    const callProxyServer = async (fileBlob: Blob, fname: string, key?: string, llmKey?: string) => {
       const response = await fetch('/api/transcribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: uri, name: filename, apiKey: key, llmApiKey: llmKey }),
+        headers: {
+          'Content-Type': fileBlob.type || 'audio/wav',
+          'X-File-Name': encodeURIComponent(fname),
+          ...(key ? { 'X-Api-Key': key } : {}),
+          ...(llmKey ? { 'X-Llm-Api-Key': llmKey } : {}),
+        },
+        body: fileBlob,
       });
 
       const rawText = await response.text().catch(() => '');
       if (!response.ok) {
         let errMsg = 'Error al transcribir el archivo.';
         if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
-          throw new Error(`El archivo "${filename}" es demasiado grande para el servidor de Vercel (límite de 4.5MB en Base64).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (.mp3, .m4a) que son mucho más ligeros y no fallan.`);
+          throw new Error(`El archivo "${fname}" sigue siendo demasiado grande para el servidor.\n\nPrueba a grabar un clip más corto, o introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.`);
         }
         try {
           const errData = JSON.parse(rawText);
@@ -153,9 +151,8 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
     if (userKey && userKey.startsWith('gsk_')) {
       console.log('Utilizando transcripción directa en panel principal (Groq)...');
       try {
-        const fileBlob = await (await fetch(base64Uri)).blob();
         const formData = new FormData();
-        formData.append('file', fileBlob, 'audio.wav');
+        formData.append('file', blob, 'audio.wav');
         formData.append('model', 'whisper-large-v3');
         formData.append('language', 'es');
 
@@ -228,10 +225,10 @@ Transcripción:
         return { text: transcriptionText, aiParsed };
       } catch (directErr) {
         console.warn('Llamada directa a Groq falló, recurriendo al servidor proxy...', directErr);
-        return await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+        return await callProxyServer(blob, filename, userKey, userLlmKey);
       }
     }
-    return await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+    return await callProxyServer(blob, filename, userKey, userLlmKey);
   };
 
   // Merge structured data extracted from several clips of the same visit: first non-empty value wins
@@ -268,14 +265,24 @@ Transcripción:
     const userLlmKey = config?.llmApiKey?.trim();
 
     try {
+      // Split each selected file into ~2-minute audio chunks first, so a single long recording
+      // (or a large WhatsApp video) never hits the server's request-size limit — no API key needed.
+      const chunkGroups = await Promise.all(files.map(f => extractAudioChunksFromMediaFile(f)));
+      const allChunks: { blob: Blob; filename: string }[] = [];
+      chunkGroups.forEach((chunks, fileIdx) => {
+        chunks.forEach((blob, chunkIdx) => {
+          allChunks.push({ blob, filename: chunks.length > 1 ? `${files[fileIdx].name}-part${chunkIdx + 1}` : files[fileIdx].name });
+        });
+      });
+
       const texts: string[] = [];
       let combinedAi: any = null;
 
-      for (let i = 0; i < files.length; i++) {
-        const { text, aiParsed } = await transcribeOneFile(files[i], userKey, userLlmKey);
+      for (let i = 0; i < allChunks.length; i++) {
+        const { text, aiParsed } = await transcribeOneChunk(allChunks[i].blob, allChunks[i].filename, userKey, userLlmKey);
         texts.push(text);
         combinedAi = mergeAiParsed(combinedAi, aiParsed);
-        setProgress(Math.round(((i + 1) / files.length) * 95));
+        setProgress(Math.round(((i + 1) / allChunks.length) * 95));
       }
 
       const combinedText = texts.filter(t => t && t.trim()).join('\n\n');

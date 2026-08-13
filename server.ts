@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -19,23 +20,58 @@ async function startServer() {
   });
 
   // Secure OpenRouter transcription proxy endpoint
-  // Secure OpenRouter transcription proxy endpoint
+  // Accepts either the legacy JSON+base64 body, or a raw binary upload (Content-Type = the audio
+  // mime type, filename/keys via X-File-Name/X-Api-Key/X-Llm-Api-Key headers) — the client now sends
+  // raw binary to avoid the ~33% base64 size penalty against Vercel's request-size limit in production.
   app.post('/api/transcribe', async (req, res) => {
     try {
-      const { file, name, apiKey, llmApiKey } = req.body;
+      const contentType = (req.headers['content-type'] || '').toString();
 
-      if (!file) {
-        return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
+      let mimeType = '';
+      let base64Data = '';
+      let name = '';
+      let apiKey: string | undefined;
+      let llmApiKey: string | undefined;
+
+      if (contentType.includes('application/json')) {
+        const { file, name: jsonName, apiKey: jsonApiKey, llmApiKey: jsonLlmApiKey } = req.body;
+
+        if (!file) {
+          return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
+        }
+
+        const base64Parts = file.match(/^data:(.+);base64,(.+)$/);
+        if (!base64Parts) {
+          return res.status(400).json({ error: 'Formato de archivo inválido. Se esperaba una URI base64.' });
+        }
+
+        mimeType = base64Parts[1];
+        base64Data = base64Parts[2];
+        name = jsonName;
+        apiKey = jsonApiKey;
+        llmApiKey = jsonLlmApiKey;
+      } else {
+        const chunks: Buffer[] = [];
+        await new Promise<void>((resolve, reject) => {
+          req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+          req.on('end', () => resolve());
+          req.on('error', reject);
+        });
+        const rawBody = Buffer.concat(chunks);
+
+        if (rawBody.length === 0) {
+          return res.status(400).json({ error: 'No se proporcionó ningún archivo de audio o vídeo.' });
+        }
+
+        mimeType = contentType || 'audio/wav';
+        base64Data = rawBody.toString('base64');
+        const rawName = req.headers['x-file-name'];
+        name = rawName ? decodeURIComponent(Array.isArray(rawName) ? rawName[0] : rawName) : 'audio.wav';
+        const rawApiKey = req.headers['x-api-key'];
+        apiKey = rawApiKey ? (Array.isArray(rawApiKey) ? rawApiKey[0] : rawApiKey) : undefined;
+        const rawLlmApiKey = req.headers['x-llm-api-key'];
+        llmApiKey = rawLlmApiKey ? (Array.isArray(rawLlmApiKey) ? rawLlmApiKey[0] : rawLlmApiKey) : undefined;
       }
-
-      // Check for valid base64 pattern
-      const base64Parts = file.match(/^data:(.+);base64,(.+)$/);
-      if (!base64Parts) {
-        return res.status(400).json({ error: 'Formato de archivo inválido. Se esperaba una URI base64.' });
-      }
-
-      const mimeType = base64Parts[1];
-      const base64Data = base64Parts[2];
 
       // Determine which API provider to use based on key prefix
       let isGroq = true;

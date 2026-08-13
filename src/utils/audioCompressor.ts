@@ -3,6 +3,95 @@
  * Automatically converts any video (MP4, MOV, MKV, AVI) or audio file to a lightweight 16kHz Mono WAV Blob.
  * Reduces 500MB video files down to ~1.5MB audio Blobs in seconds directly in the browser!
  */
+
+const buildWavBlob = (channelData: Float32Array, startSample: number, numSamples: number): Blob => {
+  const wavBuffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(wavBuffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM
+  view.setUint16(20, 1, true); // Linear PCM
+  view.setUint16(22, 1, true); // Mono channel
+  view.setUint32(24, 16000, true); // Sample rate 16000 Hz
+  view.setUint32(28, 16000 * 2, true); // Byte rate
+  view.setUint16(32, 2, true); // Block align
+  view.setUint16(34, 16, true); // Bits per sample
+
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, channelData[startSample + i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+
+  return new Blob([wavBuffer], { type: 'audio/wav' });
+};
+
+// Seconds of 16kHz/16-bit/mono audio per chunk (~3.84MB raw), comfortably under Vercel's ~4.5MB
+// serverless function body limit when sent as raw binary (no base64 overhead).
+const CHUNK_SECONDS = 120;
+
+/**
+ * Same extraction/compression as extractAudioFromMediaFile, but splits long recordings into several
+ * ~2-minute WAV chunks covering the ENTIRE audio instead of silently truncating at 3 minutes — so a
+ * long technician walkthrough still gets fully transcribed (as multiple pieces merged afterwards)
+ * without needing a personal API key to unlock a bigger single-request size limit.
+ */
+export const extractAudioChunksFromMediaFile = async (
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<Blob[]> => {
+  if (onProgress) onProgress(15);
+
+  // If already a small audio file, no need to decode/split at all.
+  if (file.type.startsWith('audio/') && file.size < 3 * 1024 * 1024) {
+    if (onProgress) onProgress(100);
+    return [file];
+  }
+
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const audioContext = new AudioCtx({ sampleRate: 16000 });
+    const arrayBuffer = await file.arrayBuffer();
+
+    if (onProgress) onProgress(35);
+
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    if (onProgress) onProgress(60);
+
+    const channelData = audioBuffer.getChannelData(0); // Take first channel (mono)
+    const totalSamples = channelData.length;
+    const samplesPerChunk = 16000 * CHUNK_SECONDS;
+
+    const chunks: Blob[] = [];
+    for (let start = 0; start < totalSamples; start += samplesPerChunk) {
+      const numSamples = Math.min(samplesPerChunk, totalSamples - start);
+      chunks.push(buildWavBlob(channelData, start, numSamples));
+    }
+    if (chunks.length === 0) chunks.push(buildWavBlob(channelData, 0, 0));
+
+    if (onProgress) onProgress(80);
+
+    return chunks;
+  } catch (err) {
+    console.warn('Direct AudioContext extraction failed, falling back to original file:', err);
+    return [file];
+  }
+};
+
 export const extractAudioFromMediaFile = async (
   file: File,
   onProgress?: (percent: number) => void

@@ -8,7 +8,7 @@ import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 import PizZip from 'pizzip';
 import { WORD_TEMPLATE_BASE64 } from '../data/wordTemplateBase64';
 import { BIRDS_DATA } from '../data/birdsData';
-import { extractAudioFromMediaFile } from '../utils/audioCompressor';
+import { extractAudioChunksFromMediaFile } from '../utils/audioCompressor';
 
 const escapeXml = (str: string): string => {
   if (!str) return '';
@@ -1199,39 +1199,30 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     return merged;
   };
 
-  // Transcribes + AI-parses a single file, returning its raw text and (if available) the structured data.
-  const transcribeOneFileInEditor = async (file: File, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed?: any }> => {
-    const { blob: compressedBlob } = await extractAudioFromMediaFile(file);
-
-    const base64Uri: string = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
-      reader.readAsDataURL(compressedBlob);
-    });
-
+  // Transcribes + AI-parses a single (already-compressed) audio chunk, returning its raw text and
+  // (if available) the structured data. Sent as a raw binary POST — not base64 JSON — so it doesn't
+  // pay the ~33% base64 size penalty against Vercel's ~4.5MB serverless body limit.
+  const transcribeOneChunkInEditor = async (blob: Blob, filename: string, userKey?: string, userLlmKey?: string): Promise<{ text: string; aiParsed?: any }> => {
     {
       let data: { text: string; aiParsed?: any } = { text: '' };
 
-      const callProxyServer = async (uri: string, filename: string, key?: string, llmKey?: string) => {
+      const callProxyServer = async (fileBlob: Blob, fname: string, key?: string, llmKey?: string) => {
             const response = await fetch('/api/transcribe', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': fileBlob.type || 'audio/wav',
+                'X-File-Name': encodeURIComponent(fname),
+                ...(key ? { 'X-Api-Key': key } : {}),
+                ...(llmKey ? { 'X-Llm-Api-Key': llmKey } : {}),
               },
-              body: JSON.stringify({
-                file: uri,
-                name: filename,
-                apiKey: key,
-                llmApiKey: llmKey,
-              }),
+              body: fileBlob,
             });
 
             const rawText = await response.text().catch(() => '');
             if (!response.ok) {
               let errMsg = 'Error al transcribir el archivo.';
               if (response.status === 413 || rawText.includes('Too Large') || rawText.includes('Request Entity')) {
-                throw new Error('El archivo es demasiado grande para el servidor de Vercel (límite de 4.5MB en Base64).\n\nPara solucionar esto:\n1. Introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.\n2. O bien sube un archivo de AUDIO (.mp3, .m4a) que son mucho más ligeros y no fallan.');
+                throw new Error(`El archivo "${fname}" sigue siendo demasiado grande para el servidor.\n\nPrueba a grabar un clip más corto, o introduce una clave de API de Groq en "Ajustes" para subir archivos de hasta 25MB directamente desde tu navegador.`);
               }
               try {
                 const errData = JSON.parse(rawText);
@@ -1252,9 +1243,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           if (userKey && userKey.startsWith('gsk_')) {
             console.log('Utilizando transcripción directa desde el navegador (Groq)...');
             try {
-              const fileBlob = await (await fetch(base64Uri)).blob();
               const formData = new FormData();
-              formData.append('file', fileBlob, file.name);
+              formData.append('file', blob, filename);
               formData.append('model', 'whisper-large-v3');
               formData.append('language', 'es');
 
@@ -1331,10 +1321,10 @@ Transcripción:
               data = { text: transcriptionText, aiParsed };
             } catch (directErr: any) {
               console.warn('Llamada directa a Groq falló o no está disponible. Reintentando por servidor proxy...', directErr);
-              data = await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+              data = await callProxyServer(blob, filename, userKey, userLlmKey);
             }
           } else {
-            data = await callProxyServer(base64Uri, file.name, userKey, userLlmKey);
+            data = await callProxyServer(blob, filename, userKey, userLlmKey);
           }
 
           return data;
@@ -1356,13 +1346,23 @@ Transcripción:
       const userKey = config?.groqApiKey?.trim();
       const userLlmKey = config?.llmApiKey?.trim();
 
+      // Split each selected file into ~2-minute audio chunks first, so a single long recording
+      // (or a large WhatsApp video) never hits the server's request-size limit — no API key needed.
+      const chunkGroups = await Promise.all(files.map(f => extractAudioChunksFromMediaFile(f)));
+      const allChunks: { blob: Blob; filename: string }[] = [];
+      chunkGroups.forEach((chunks, fileIdx) => {
+        chunks.forEach((blob, chunkIdx) => {
+          allChunks.push({ blob, filename: chunks.length > 1 ? `${files[fileIdx].name}-part${chunkIdx + 1}` : files[fileIdx].name });
+        });
+      });
+
       const texts: string[] = [];
       let combinedAi: any = null;
-      for (let i = 0; i < files.length; i++) {
-        const result = await transcribeOneFileInEditor(files[i], userKey, userLlmKey);
+      for (let i = 0; i < allChunks.length; i++) {
+        const result = await transcribeOneChunkInEditor(allChunks[i].blob, allChunks[i].filename, userKey, userLlmKey);
         texts.push(result.text);
         combinedAi = mergeAiParsedInEditor(combinedAi, result.aiParsed);
-        setVideoProgress(Math.round(((i + 1) / files.length) * 95));
+        setVideoProgress(Math.round(((i + 1) / allChunks.length) * 95));
       }
 
       const data: { text: string; aiParsed?: any } = {
