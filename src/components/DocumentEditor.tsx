@@ -2193,10 +2193,11 @@ ${cleanedBase64}`);
         return xml
           .replace(/Com\.\s*Prop\.\s*(?:<[^>]+>)*\s*(?:@{8,11}|COMUNIDAD DE PROPIETARIOS[^<]*)/gi, `Com. Prop. ${escapeXml(cleanClientName)}`)
           .replace(/C\/\s*(?:<[^>]+>)*\s*(?:@{8,11}|Calle[^\n<]*|Calle Guadalajara 12, Baraquies)/gi, `C/ ${escapeXml(cleanClientAddress)}`)
-          // The real template's redacted postal-code run keeps "Madrid" glued to the masked digits
-          // in the same text node (e.g. "@@@@   Madrid") — swap the city out first so the generic
-          // "@{4}" postal-code replacement below doesn't leave the old city name stranded next to it.
+          // The embedded template's postal-code run keeps "Madrid" glued to the literal digits in
+          // the same text node ("001   Madrid" or a redacted "@@@@   Madrid") — swap the city out
+          // first so it isn't left stranded once the digits themselves get replaced below.
           .replace(/(@{4}[^<]*?)Madrid\b/gi, (_m, prefix) => prefix + escapeXml(cleanCity))
+          .replace(/(\d[^<]*?\s{2,})Madrid\b/g, (_m, prefix) => prefix + escapeXml(cleanCity))
           .replace(/28@{4}|28001/g, escapeXml(cleanPostalCode))
           .replace(/(?:Ref:|Ref-)\s*(?:(?!<\/w:p>)[\s\S])*?(?:@{8,11}|q-\d+|Ref-[A-Z0-9-]+)/gi, `Ref: ${escapeXml(finalRefCode)}`)
           .replace(/@{11}/g, escapeXml(finalRefCode))
