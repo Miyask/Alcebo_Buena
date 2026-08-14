@@ -578,8 +578,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       setPriceItems(DEFAULT_PRICE_ITEMS);
     }
     setZonasAfectadas(quote.zonasAfectadas || extractZonasFromText(quote.text || '') || '');
-    setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
-    setVisitDate(quote.visitDate || quote.date || new Date().toISOString().split('T')[0]);
+    // Derived straight from the `quote` prop (not the quoteDate/visitDate state) because this
+    // effect calls setQuoteDate/setVisitDate below — reading the state here would still see last
+    // render's value (React state updates aren't synchronous), producing the PREVIOUS quote's date
+    // whenever the user switches from one quote to another without a full page reload.
+    const effectiveQuoteDate = quote.date || new Date().toISOString().split('T')[0];
+    const effectiveVisitDate = quote.visitDate || quote.date || new Date().toISOString().split('T')[0];
+    setQuoteDate(effectiveQuoteDate);
+    setVisitDate(effectiveVisitDate);
     setRefCodeInput(quote.refCode || (quote.id.startsWith('q-new') ? '' : quote.id));
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
@@ -588,7 +594,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/src="\$\{logoUrl\}"/g, `src="${logoUrl}"`)
         .replace(/src="undefined"/g, `src="${logoUrl}"`);
 
-      const finalRefCode = refCodeInput || quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
       // Clean up any duplicate cover-page-wrapper that resulted from the previous bug
       if (docHtml.includes('cover-page-wrapper') && (docHtml.match(/cover-page-wrapper/g) || []).length > 1) {
@@ -708,14 +714,17 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           `$1 <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span>$2`
         );
       }
-      // Drafts saved before the quote-date fix have the validity paragraph ending with "desde"
-      // and nothing after it — fill in the actual "fecha del presupuesto" now that it exists.
-      if (/validez de 1 año desde\s*(?:<strong>\s*<\/strong>)?\s*\.?\s*<\/p>/i.test(docHtml)) {
-        docHtml = docHtml.replace(
-          /validez de 1 año desde\s*(?:<strong>\s*<\/strong>)?\s*\.?\s*<\/p>/i,
-          `validez de 1 año desde <strong><span class="quote-date-field">${formatQuoteDateEs(quoteDate)}</span></strong>.</p>`
-        );
-      }
+      // Drafts saved before the quote-date fix have the validity paragraph either empty after
+      // "desde" or hand-typed (any duration wording — "1 año", "6 meses", etc. — and possibly a
+      // manually-typed date already). Rebuild it to end in a live, editable date field, whatever
+      // it currently says, as long as it isn't already wired up.
+      docHtml = docHtml.replace(/<p>((?:(?!<\/p>)[\s\S])*?validez[\s\S]*?)<\/p>/i, (fullMatch, inner) => {
+        if (/quote-date-field/i.test(inner)) return fullMatch;
+        const desdeIdx = inner.search(/desde/i);
+        if (desdeIdx === -1) return fullMatch;
+        const prefix = inner.substring(0, desdeIdx + 'desde'.length);
+        return `<p>${prefix} <strong><span class="quote-date-field">${formatQuoteDateEs(effectiveQuoteDate)}</span></strong>.</p>`;
+      });
       // The official template numbers these as "5.1 Diagnóstico" / "5.2 Propuesta Técnica" (subsections
       // of section 5), not as an independently-numbered list — replace the <ol><li> markup with plain
       // labeled headings so they never render as two separate "1."s.
@@ -766,7 +775,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       }, 100);
     } else {
       // Setup the initial HTML using the official Word template and bind placeholders
-      let today = visitDate ? new Date(visitDate) : new Date();
+      let today = effectiveVisitDate ? new Date(effectiveVisitDate) : new Date();
       if (isNaN(today.getTime())) today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -797,7 +806,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
-      const finalRefCode = refCodeInput || quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
       const finalPostalCode = quote.postalCode || clientAddressInput.match(/\b\d{5}\b/)?.[0] || '28001';
       const finalPostalPrefix = finalPostalCode.substring(0, 3) + '00';
 
@@ -812,7 +821,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
         .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
         .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
-        .replace(/\[QUOTE_DATE\]/g, `<span class="quote-date-field">${formatQuoteDateEs(quoteDate)}</span>`)
+        .replace(/\[QUOTE_DATE\]/g, `<span class="quote-date-field">${formatQuoteDateEs(effectiveQuoteDate)}</span>`)
         .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${zonasAfectadas || (selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
@@ -886,7 +895,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
       setEditorHtml(wrapImagesInEditor(initialHtml));
     }
-  }, [quote]);
+    // Deliberately [quote.id], not [quote]: autosave calls onSaveQuote -> the parent's
+    // setDraftQuote/setQuotes -> a new `quote` object reference for the SAME quote every ~3s
+    // while dirty. Depending on the whole object re-ran this entire rebuild (and clobbered
+    // editorRef's live content, including whatever the user was mid-typing) on every autosave
+    // tick instead of only when the user actually switches to a different quote.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote.id]);
 
   // Register global window functions for interactive image overlay toolbars
   useEffect(() => {
