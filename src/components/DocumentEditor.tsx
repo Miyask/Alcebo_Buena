@@ -57,6 +57,13 @@ const extractCityFromAddress = (address: string): string | null => {
 const resolveCity = (aiCity: string | null | undefined, address: string): string =>
   (aiCity && aiCity.trim()) || extractCityFromAddress(address) || '[LOCALIDAD]';
 
+// Formats an ISO "YYYY-MM-DD" quote date as "DD/MM/YYYY" for the validity/expiry paragraph.
+const formatQuoteDateEs = (isoDate: string): string => {
+  const d = isoDate ? new Date(isoDate) : new Date();
+  if (isNaN(d.getTime())) return '';
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+};
+
 // Extract base64 images from template HTML on module load
 let IMAGE_RED_BASE64 = '';
 let IMAGE_VARILLAS_BASE64 = '';
@@ -131,8 +138,15 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   // user toggles a checkbox (or the video-upload flow sets selectedBirds/selectedSystems).
   const [zonasAfectadas, setZonasAfectadas] = useState<string>(quote.zonasAfectadas || extractZonasFromText(quote.text || '') || '');
   
+  // "Fecha del presupuesto" — when it's issued/sent to the client. Drives the validity/expiry
+  // text and is set independently of the visit date (never overwritten by video transcription).
   const [quoteDate, setQuoteDate] = useState<string>(quote.date || new Date().toISOString().split('T')[0]);
-  
+  // Date the technician actually visited — shown in the diagnosis paragraph ("el pasado día...").
+  const [visitDate, setVisitDate] = useState<string>(quote.visitDate || quote.date || new Date().toISOString().split('T')[0]);
+  // Reference code — one input keeps every .ref-code-field span in the document (cover page and
+  // the final price page) in sync, instead of having to type it twice.
+  const [refCodeInput, setRefCodeInput] = useState<string>(quote.refCode || (quote.id.startsWith('q-new') ? '' : quote.id));
+
   const [isProcessingVideo, setIsProcessingVideo] = useState<boolean>(false);
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [customText, setCustomText] = useState<string>(quote.text || '');
@@ -291,8 +305,21 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     return html;
   };
 
-  const handleDateChange = (val: string) => {
+  // "Fecha del Presupuesto" (when it's issued/sent) — only drives the validity/expiry text at
+  // the end of the document, never the visit date shown in the diagnosis paragraph.
+  const handleQuoteDateChange = (val: string) => {
     setQuoteDate(val);
+    if (!val) return;
+    const d = new Date(val);
+    if (!isNaN(d.getTime()) && editorRef.current) {
+      const formatted = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+      editorRef.current.querySelectorAll('.quote-date-field').forEach(el => { el.textContent = formatted; });
+    }
+  };
+
+  // "Fecha de la Visita" — feeds the "el pasado día [DAY] de [MONTH] de 20[YEAR]" diagnosis text.
+  const handleVisitDateChange = (val: string) => {
+    setVisitDate(val);
     if (!val) return;
     const d = new Date(val);
     if (!isNaN(d.getTime())) {
@@ -396,6 +423,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     const isEmailChanged = clientEmailInput !== (quote.clientEmail || '');
     const isMetersChanged = meters !== (quote.estimationLineal || 15);
     const isDateChanged = quoteDate !== (quote.date || new Date().toISOString().split('T')[0]);
+    const isVisitDateChanged = visitDate !== (quote.visitDate || quote.date || new Date().toISOString().split('T')[0]);
     const isTextChanged = customText !== (quote.text || '');
     const isTemplateChanged = selectedTemplateId !== (quote.templateId || 'temp-red');
     
@@ -410,6 +438,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       isEmailChanged ||
       isMetersChanged ||
       isDateChanged ||
+      isVisitDateChanged ||
       isTextChanged ||
       isTemplateChanged ||
       isPriceItemsChanged ||
@@ -418,7 +447,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     ) {
       setSaveStatus('dirty');
     }
-  }, [selectedBirds, selectedSystems, meters, quoteDate, clientNameInput, clientAddressInput, clientEmailInput, priceItems, customText, selectedTemplateId, quote]);
+  }, [selectedBirds, selectedSystems, meters, quoteDate, visitDate, clientNameInput, clientAddressInput, clientEmailInput, priceItems, customText, selectedTemplateId, quote]);
 
   // Feature 5: Apply base template to editor DOM fields
   const handleApplyTemplate = (tempId: string) => {
@@ -443,6 +472,13 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       setSaveStatus('dirty');
     }
     showToast(`Plantilla "${temp.name}" aplicada al documento.`);
+  };
+
+  const handleRefCodeChange = (val: string) => {
+    setRefCodeInput(val);
+    if (editorRef.current) {
+      editorRef.current.querySelectorAll('.ref-code-field').forEach(el => { el.textContent = val; });
+    }
   };
 
   const handleClientNameChange = (val: string) => {
@@ -526,6 +562,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
     setZonasAfectadas(quote.zonasAfectadas || extractZonasFromText(quote.text || '') || '');
     setQuoteDate(quote.date || new Date().toISOString().split('T')[0]);
+    setVisitDate(quote.visitDate || quote.date || new Date().toISOString().split('T')[0]);
+    setRefCodeInput(quote.refCode || (quote.id.startsWith('q-new') ? '' : quote.id));
     setSelectedTemplateId(quote.templateId || 'temp-red');
 
     if (quote.documentHtml && quote.documentHtml.length > 50 && (quote.documentHtml.includes('CONTENIDO') || quote.documentHtml.includes('1.-') || quote.documentHtml.includes('CONTROL DE AVES'))) {
@@ -533,7 +571,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/src="\$\{logoUrl\}"/g, `src="${logoUrl}"`)
         .replace(/src="undefined"/g, `src="${logoUrl}"`);
 
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalRefCode = refCodeInput || quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
 
       // Clean up any duplicate cover-page-wrapper that resulted from the previous bug
       if (docHtml.includes('cover-page-wrapper') && (docHtml.match(/cover-page-wrapper/g) || []).length > 1) {
@@ -653,6 +691,14 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           `$1 <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span>$2`
         );
       }
+      // Drafts saved before the quote-date fix have the validity paragraph ending with "desde"
+      // and nothing after it — fill in the actual "fecha del presupuesto" now that it exists.
+      if (/validez de 1 año desde\s*(?:<strong>\s*<\/strong>)?\s*\.?\s*<\/p>/i.test(docHtml)) {
+        docHtml = docHtml.replace(
+          /validez de 1 año desde\s*(?:<strong>\s*<\/strong>)?\s*\.?\s*<\/p>/i,
+          `validez de 1 año desde <strong><span class="quote-date-field">${formatQuoteDateEs(quoteDate)}</span></strong>.</p>`
+        );
+      }
       // The official template numbers these as "5.1 Diagnóstico" / "5.2 Propuesta Técnica" (subsections
       // of section 5), not as an independently-numbered list — replace the <ol><li> markup with plain
       // labeled headings so they never render as two separate "1."s.
@@ -703,7 +749,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       }, 100);
     } else {
       // Setup the initial HTML using the official Word template and bind placeholders
-      let today = quote.date ? new Date(quote.date) : new Date();
+      let today = visitDate ? new Date(visitDate) : new Date();
       if (isNaN(today.getTime())) today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -734,7 +780,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
       const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalRefCode = refCodeInput || quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
       const finalPostalCode = quote.postalCode || clientAddressInput.match(/\b\d{5}\b/)?.[0] || '28001';
       const finalPostalPrefix = finalPostalCode.substring(0, 3) + '00';
 
@@ -749,6 +795,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
         .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
         .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+        .replace(/\[QUOTE_DATE\]/g, `<span class="quote-date-field">${formatQuoteDateEs(quoteDate)}</span>`)
         .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[PLAGA\]/g, `<span class="plaga-field">${selectedBird}</span>`)
         .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${zonasAfectadas || (selectedSystem === 'Red' ? 'cornisas superiores y aleros' : 'líneas de fachada y repisas')}</span>`)
@@ -1195,6 +1242,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     const updated: Quote = {
       ...quote,
       date: quoteDate,
+      visitDate,
+      refCode: refCodeInput,
       clientName: clientNameInput || extractedClient || 'Comunidad Editada',
       clientAddress: clientAddressInput,
       clientEmail: clientEmailInput,
@@ -1509,7 +1558,7 @@ Transcripción:
           } else if (regexExtractedDate) {
             detectedDate = regexExtractedDate;
           }
-          setQuoteDate(detectedDate);
+          setVisitDate(detectedDate);
  
           setSelectedBirds([detectedBird]);
           setSelectedSystems(detectedSystemsList);
@@ -1561,7 +1610,8 @@ Transcripción:
               '$2$1'
             );
 
-          const finalRefCode = (ai && ai.refCode) || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+          const finalRefCode = (ai && ai.refCode) || refCodeInput || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+          setRefCodeInput(finalRefCode);
 
           const textForIntro = cleanIntroText((ai && ai.introTecnica) || data.text);
           const textForProblem = cleanProblemText((ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
@@ -1581,6 +1631,7 @@ Transcripción:
             .replace(/\[DAY\]/g, `<span class="day-field">${dayStr}</span>`)
             .replace(/\[MONTH\]/g, `<span class="month-field">${monthStr}</span>`)
             .replace(/\[YEAR\]/g, `<span class="year-field">${yearStr}</span>`)
+            .replace(/\[QUOTE_DATE\]/g, `<span class="quote-date-field">${formatQuoteDateEs(quoteDate)}</span>`)
             .replace(/\[PLAGA\]palomas/gi, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[PLAGA\]/g, `<span class="plaga-field">${detectedBird}</span>`)
             .replace(/\[ZONAS_AFECTADAS\]/g, `<span class="zonas-afectadas-field">${finalZonasAfectadas}</span>`)
@@ -2163,8 +2214,8 @@ ${cleanedBase64}`);
       let nextRelIdNum = relIds.length > 0 ? Math.max(...relIds) + 1 : 100;
 
       // Replace metadata placeholders in the template
-      const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
-      let today = quoteDate ? new Date(quoteDate) : new Date();
+      const finalRefCode = refCodeInput || quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      let today = visitDate ? new Date(visitDate) : new Date();
       if (isNaN(today.getTime())) today = new Date();
       const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -2813,6 +2864,9 @@ ${cleanedBase64}`);
         </div>
       )}
 
+      {/* Sticky wrapper: keeps the toolbar buttons (save/export/insert photo) visible while
+          scrolling down a long document, instead of having to scroll back up to reach them. */}
+      <div className="no-print sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm pt-2 pb-3 -mt-2 space-y-4">
       {/* Editor Header Panel with Main controls */}
       <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
@@ -2966,6 +3020,7 @@ ${cleanedBase64}`);
 
         </div>
       </div>
+      </div>
 
       {/* Main Workspace layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
@@ -3051,9 +3106,33 @@ ${cleanedBase64}`);
                 <input
                   type="date"
                   value={quoteDate}
-                  onChange={(e) => handleDateChange(e.target.value)}
+                  onChange={(e) => handleQuoteDateChange(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors cursor-pointer"
                 />
+                <p className="text-[9px] text-slate-400 mt-1">Fecha de emisión/envío al cliente — de aquí sale la validez del presupuesto.</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">🚐 Fecha de la Visita</label>
+                <input
+                  type="date"
+                  value={visitDate}
+                  onChange={(e) => handleVisitDateChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors cursor-pointer"
+                />
+                <p className="text-[9px] text-slate-400 mt-1">Fecha en la que el técnico hizo la visita (se extrae del vídeo/audio).</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">🏷️ Referencia del Presupuesto</label>
+                <input
+                  type="text"
+                  value={refCodeInput}
+                  onChange={(e) => handleRefCodeChange(e.target.value)}
+                  placeholder="Ref-ALC-..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold font-mono text-slate-700 focus:outline-none focus:border-[#009FE3] transition-colors"
+                />
+                <p className="text-[9px] text-slate-400 mt-1">Se rellena una sola vez y se copia sola a la portada y a la hoja de precios.</p>
               </div>
 
               <div>

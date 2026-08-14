@@ -280,7 +280,13 @@ function AppContent() {
         )}
         
         {/* Content viewport area: offset top padding when fixed header is active */}
-        <main className={`flex-1 w-full pb-10 px-4 md:px-8 bg-slate-50 overflow-x-hidden ${currentTab !== 'editor' ? 'pt-24' : 'pt-6'}`}>
+        {/* [overflow-x:clip] instead of overflow-x-hidden: "hidden" makes the browser treat this
+            element as a scroll container (per the CSS overflow spec, setting one axis to a
+            non-"visible" value forces the other axis to "auto"), which breaks position:sticky for
+            the document editor's toolbar — it sticks to this element's own non-scrolling box
+            instead of the viewport. "clip" prevents the same horizontal overflow without that
+            side effect. */}
+        <main className={`flex-1 w-full pb-10 px-4 md:px-8 bg-slate-50 [overflow-x:clip] ${currentTab !== 'editor' ? 'pt-24' : 'pt-6'}`}>
           <div className={`${currentTab === 'editor' ? 'max-w-none' : 'max-w-7xl'} mx-auto w-full`}>
             {currentTab === 'dashboard' && (
               <DashboardView onAddQuote={handleAddQuote} config={config} />

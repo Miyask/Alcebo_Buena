@@ -349,7 +349,10 @@ Transcripción:
       return isNaN(new Date(formattedDate).getTime()) ? null : formattedDate;
     };
 
-    let quoteDate = new Date().toISOString().split('T')[0];
+    // The date spoken/shown in the video is when the TECHNICIAN VISITED — not the date the
+    // quote itself is issued/sent (that one determines its validity period and defaults to
+    // today, editable separately in the document editor).
+    let visitDate = new Date().toISOString().split('T')[0];
     const regexExtractedDate = extractDateFromText(transcription);
     if (aiData?.date && !isNaN(new Date(aiData.date).getTime())) {
       // Cross-check: if the AI's date's day number is actually part of a street name in the
@@ -357,15 +360,16 @@ Transcripción:
       // whatever the guarded regex scan found instead.
       const aiDay = parseInt(aiData.date.split('-')[2], 10);
       const looksLikeStreetNumber = !isNaN(aiDay) && new RegExp(`(calle|c\\/)[^.]{0,40}\\b${aiDay}\\b`, 'i').test(transcription);
-      quoteDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : aiData.date;
+      visitDate = (looksLikeStreetNumber && regexExtractedDate) ? regexExtractedDate : aiData.date;
     } else if (regexExtractedDate) {
-      quoteDate = regexExtractedDate;
+      visitDate = regexExtractedDate;
     }
 
     const newQuote: Quote = {
       id: 'q-' + Date.now(),
       title: clientName ? `Presupuesto ${clientName}` : `Presupuesto Automático ${new Date().toLocaleDateString()}`,
-      date: quoteDate,
+      date: new Date().toISOString().split('T')[0],
+      visitDate,
       status: 'Borrador',
       text: transcription,
       birds: detectedBirds.length > 0 ? detectedBirds : ['Palomas'],

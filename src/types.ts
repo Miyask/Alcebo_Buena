@@ -1,7 +1,8 @@
 export interface Quote {
   id: string;
   title: string;
-  date: string;
+  date: string; // "Fecha del presupuesto" — when it's issued/sent; drives the validity/expiry text
+  visitDate?: string; // Date the technician actually visited, extracted from the video/audio
   status: 'Borrador' | 'Enviado' | 'Aprobado' | 'Descartado';
   text: string; // Original transcript
   birds: string[];
