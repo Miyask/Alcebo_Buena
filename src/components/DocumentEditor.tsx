@@ -595,6 +595,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         .replace(/src="undefined"/g, `src="${logoUrl}"`);
 
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
+      const finalPostalCode = quote.postalCode || clientAddressInput.match(/\b\d{5}\b/)?.[0] || '28001';
+      const finalPostalPrefix = finalPostalCode.substring(0, 3) + '00';
 
       // Clean up any duplicate cover-page-wrapper that resulted from the previous bug
       if (docHtml.includes('cover-page-wrapper') && (docHtml.match(/cover-page-wrapper/g) || []).length > 1) {
@@ -650,7 +652,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
+              <div><span class="postal-code-prefix-field">${finalPostalCode.substring(0, 3)}</span><span class="postal-code-field">${finalPostalCode.substring(3)}</span> <span class="city-field">${escapeXml(resolveCity(quote.city, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
@@ -857,7 +859,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
+              <div><span class="postal-code-prefix-field">${finalPostalCode.substring(0, 3)}</span><span class="postal-code-field">${finalPostalCode.substring(3)}</span> <span class="city-field">${escapeXml(resolveCity(quote.city, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
@@ -879,7 +881,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
             <div style="font-size: 9.5pt; line-height: 1.6; margin-left: 30px; color: #000;">
               <div>Com. Prop. <strong class="client-name-field">${escapeXml(clientNameInput.toUpperCase())}</strong></div>
               <div>C/ <span class="client-address-field">${escapeXml(clientAddressInput)}</span></div>
-              <div><span class="postal-code-prefix-field">280</span><span class="postal-code-field">01</span> <span class="city-field">${escapeXml(resolveCity(null, clientAddressInput))}</span></div>
+              <div><span class="postal-code-prefix-field">${finalPostalCode.substring(0, 3)}</span><span class="postal-code-field">${finalPostalCode.substring(3)}</span> <span class="city-field">${escapeXml(resolveCity(quote.city, clientAddressInput))}</span></div>
               <div style="margin-top: 6px;">Att: D. <span class="att-name-field">Presidente / Administrador de Fincas</span></div>
             </div>
             <div style="position: absolute; right: 10px; bottom: 10px; border: 1px solid #000; padding: 2px 8px; font-size: 8pt; background: #fff; color: #000;">
