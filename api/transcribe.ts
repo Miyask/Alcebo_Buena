@@ -190,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 JSON keys:
 - "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Avión Común".
-- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
+- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas", "Malla" (usa "Malla" solo cuando se mencionen placas solares o paneles solares junto con malla metálica/clips de presión — es un sistema distinto de "Red").
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
 - "city": Localidad o municipio de la visita (NO asumas Madrid por defecto; puede ser cualquier pueblo o ciudad de España, ej. "Toledo", "Talavera de la Reina", "Illescas"). Si no se menciona explícitamente, deriva la más probable a partir de la dirección o deja el campo vacío.

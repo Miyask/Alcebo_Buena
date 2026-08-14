@@ -89,7 +89,14 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
 
     // 2. Systems detection
     const systems: string[] = [];
-    if (textLower.includes('red') || textLower.includes('malla')) systems.push('Red');
+    // "Malla" (solar-panel mesh) only when panels are actually mentioned — plain "malla"/"red"
+    // without that context still means the regular anti-bird net system.
+    const mentionsSolarPanels = textLower.includes('placa solar') || textLower.includes('placas solares') || textLower.includes('panel solar') || textLower.includes('paneles solares');
+    if (mentionsSolarPanels && (textLower.includes('malla') || textLower.includes('clip'))) {
+      systems.push('Malla');
+    } else if (textLower.includes('red') || textLower.includes('malla')) {
+      systems.push('Red');
+    }
     if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa')) {
       systems.push('Varillas');
     }
@@ -174,7 +181,7 @@ export default function DashboardView({ onAddQuote, config }: DashboardViewProps
 
 JSON keys:
 - "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Avión Común".
-- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
+- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas", "Malla" (usa "Malla" solo cuando se mencionen placas solares o paneles solares junto con malla metálica/clips de presión — es un sistema distinto de "Red").
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
 - "city": Localidad o municipio de la visita (NO asumas Madrid por defecto; puede ser cualquier pueblo o ciudad de España, ej. "Toledo", "Talavera de la Reina", "Illescas"). Si no se menciona explícitamente, deriva la más probable a partir de la dirección o deja el campo vacío.

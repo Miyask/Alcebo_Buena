@@ -8,6 +8,7 @@ import { WATERMARK_BASE64 } from '../data/watermarkBase64';
 import PizZip from 'pizzip';
 import { WORD_TEMPLATE_BASE64 } from '../data/wordTemplateBase64';
 import { BIRDS_DATA } from '../data/birdsData';
+import { MALLA_MESH_BASE64, MALLA_INSTALADA_1_BASE64, MALLA_INSTALADA_2_BASE64 } from '../data/mallaSystemImages';
 import { extractAudioChunksFromMediaFile } from '../utils/audioCompressor';
 
 const escapeXml = (str: string): string => {
@@ -267,6 +268,21 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
         </ul>
       `;
     }
+    if (activeSystems.includes('Malla')) {
+      html += `
+        <p><strong class="sistema-titulo-field" style="background-color: #fef08a; padding: 1px 4px; border-radius: 2px;">MALLA METÁLICA ELECTROSOLDADA (PLACAS SOLARES):</strong> sus características son las siguientes:</p>
+        <ul>
+          <li><img class="bird-float-img" src="data:image/png;base64,${MALLA_MESH_BASE64}" style="width:150px; height:auto; float:left; margin:0 12px 8px 0; border-radius:6px;" />Malla metálica electrosoldada: fabricada mediante alambres electrosoldados galvanizados, con diámetro de 0,9 a 2,70 mm y cuadrícula de 12,7 x 12,7 mm a 13 x 13 mm de cuadro. Se presenta en rollo, precortado a las medidas deseadas para adaptarse a cada instalación.</li>
+          <li>Clips de presión sin taladros: varillas de sujeción con arandela de presión de acero inoxidable. La varilla se sujeta en la parte interior del perfil de la placa solar y fija la malla metálica contra el perfil mediante arandela de presión, sin necesidad de realizar taladros ni perforaciones.</li>
+          <li>Los anclajes quedan sujetos en el borde inferior del bastidor metálico de las placas solares, sin dañar ni perforar el perfil.</li>
+        </ul>
+        <div class="bird-image-block" style="text-align: center; margin: 14px auto;">
+          <img src="data:image/jpeg;base64,${MALLA_INSTALADA_1_BASE64}" alt="Instalación de malla metálica sobre placas solares" style="width:240px; max-width:48%; height:auto; border-radius: 6px;" />
+          <img src="data:image/jpeg;base64,${MALLA_INSTALADA_2_BASE64}" alt="Instalación de malla metálica sobre placas solares" style="width:240px; max-width:48%; height:auto; border-radius: 6px; margin-left: 8px;" />
+          <p style="font-size: 9pt; color: #64748b; margin-top: 4px;">Ejemplos de instalaciones ya realizadas con malla metálica y clips de presión.</p>
+        </div>
+      `;
+    }
     return html;
   };
 
@@ -366,7 +382,8 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           'Red': 'Red Network anti-palomas',
           'Varillas': 'Varillas Avipoint',
           'Eléctrico': 'Sistema Electroestático Disuasorio',
-          'Capturas': 'Plan de Capturas Selectivas'
+          'Capturas': 'Plan de Capturas Selectivas',
+          'Malla': 'Malla Metálica Electrosoldada (Placas Solares)'
         };
         sistemasNombresEl.textContent = selectedSystems.map(s => sysNamesMap[s] || s).join(', ');
       }
@@ -1352,7 +1369,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
 
 JSON keys:
 - "detectedBird": Debe ser uno de los siguientes valores exactos en español: "Palomas", "Gorriones", "Cigüeñas", "Gaviotas", "Cotorras", "Golondrinas", "Avión Común".
-- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas".
+- "detectedSystems": Array de strings que contengan los sistemas de control propuestos. Valores válidos: "Red", "Varillas", "Eléctrico", "Capturas", "Malla" (usa "Malla" solo cuando se mencionen placas solares o paneles solares junto con malla metálica/clips de presión — es un sistema distinto de "Red").
 - "clientName": Nombre formal de la comunidad de propietarios en MAYÚSCULAS, ej. "COMUNIDAD DE PROPIETARIOS PRINCESA 28".
 - "clientAddress": Dirección de la obra limpia, ej. "Calle de la Princesa 28, Madrid".
 - "city": Localidad o municipio de la visita (NO asumas Madrid por defecto; puede ser cualquier pueblo o ciudad de España, ej. "Toledo", "Talavera de la Reina", "Illescas"). Si no se menciona explícitamente, deriva la más probable a partir de la dirección o deja el campo vacío.
@@ -1476,7 +1493,14 @@ Transcripción:
           if (ai && ai.detectedSystems && ai.detectedSystems.length > 0) {
             detectedSystemsList = ai.detectedSystems;
           } else {
-            if (textLower.includes('red') || textLower.includes('malla')) detectedSystemsList.push('Red');
+            // "Malla" (solar-panel mesh) is only meant when panels are actually mentioned — plain
+            // "malla"/"red" without that context still means the regular anti-bird net system.
+            const mentionsSolarPanels = textLower.includes('placa solar') || textLower.includes('placas solares') || textLower.includes('panel solar') || textLower.includes('paneles solares');
+            if (mentionsSolarPanels && (textLower.includes('malla') || textLower.includes('clip'))) {
+              detectedSystemsList.push('Malla');
+            } else if (textLower.includes('red') || textLower.includes('malla')) {
+              detectedSystemsList.push('Red');
+            }
             if (textLower.includes('varilla') || textLower.includes('pincho') || textLower.includes('púa') || textLower.includes('varillas')) {
               detectedSystemsList.push('Varillas');
             }
@@ -3166,7 +3190,7 @@ ${cleanedBase64}`);
               <div>
                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Sistemas Propuestos</label>
                 <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200/50">
-                  {['Red', 'Varillas', 'Eléctrico', 'Capturas'].map((sys) => {
+                  {['Red', 'Varillas', 'Eléctrico', 'Capturas', 'Malla'].map((sys) => {
                     const isChecked = selectedSystems.includes(sys);
                     return (
                       <label key={sys} className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
@@ -3184,7 +3208,7 @@ ${cleanedBase64}`);
                           }}
                           className="w-4 h-4 rounded text-[#009FE3] focus:ring-[#009FE3] border-slate-350"
                         />
-                        <span>{sys === 'Red' ? 'Red Network' : sys === 'Varillas' ? 'Varillas Avipoint' : sys === 'Eléctrico' ? 'Sistema Eléctrico' : 'Jaulas de Captura'}</span>
+                        <span>{sys === 'Red' ? 'Red Network' : sys === 'Varillas' ? 'Varillas Avipoint' : sys === 'Eléctrico' ? 'Sistema Eléctrico' : sys === 'Malla' ? 'Malla (Placas Solares)' : 'Jaulas de Captura'}</span>
                       </label>
                     );
                   })}
