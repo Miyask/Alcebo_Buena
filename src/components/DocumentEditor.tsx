@@ -120,6 +120,16 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
   const imageUploadRef = useRef<HTMLInputElement>(null);
   
   const [editorHtml, setEditorHtml] = useState<string>('');
+  // The sticky toolbar's offset must clear the app's fixed top header — but that header only
+  // exists when the editor is embedded inside the normal tab layout (e.g. opened from the
+  // Presupuestos list); the standalone full-page editor route hides it entirely, which used to
+  // leave an empty gap reserved for a header that isn't there. Measure it at runtime instead of
+  // hardcoding its height, so this adapts to either context automatically.
+  const [stickyTop, setStickyTop] = useState<number>(0);
+  useEffect(() => {
+    const headerEl = document.querySelector('header');
+    setStickyTop(headerEl ? headerEl.getBoundingClientRect().height : 0);
+  }, []);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
   
@@ -2907,7 +2917,7 @@ ${cleanedBase64}`);
 
       {/* Sticky wrapper: keeps the toolbar buttons (save/export/insert photo) visible while
           scrolling down a long document, instead of having to scroll back up to reach them. */}
-      <div className="no-print sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm pt-2 pb-3 -mt-2 space-y-4">
+      <div className="no-print sticky z-30 bg-slate-50/95 backdrop-blur-sm pt-2 pb-3 -mt-2 space-y-4" style={{ top: stickyTop }}>
       {/* Editor Header Panel with Main controls */}
       <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
