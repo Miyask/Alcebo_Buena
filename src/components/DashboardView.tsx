@@ -203,7 +203,7 @@ Transcripción:
         const finalLlmKey = userLlmKey || userKey;
         const isLlmGroq = finalLlmKey.startsWith('gsk_');
         const llmUrl = isLlmGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-        const llmModel = isLlmGroq ? 'llama-3.3-70b-versatile' : 'meta-llama/llama-3.3-70b-instruct';
+        const llmModel = isLlmGroq ? 'openai/gpt-oss-120b' : 'meta-llama/llama-3.3-70b-instruct';
 
         const llmRes = await fetch(llmUrl, {
           method: 'POST',

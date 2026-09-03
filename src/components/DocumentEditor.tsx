@@ -192,6 +192,29 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     return cleaned;
   };
 
+  // Best-effort clean-up applied ONLY when the AI failed to structure the transcript (no LLM key,
+  // rate limit, bad JSON, etc.) and the diagnosis text has to fall back to the technician's raw,
+  // unedited dictation — which normally includes exactly the things a real presupuesto shouldn't
+  // repeat back (the date, the address, the ref code, "cliente [Nombre]"). Strips the most common
+  // spoken patterns for those so the fallback doesn't read like a phone-call transcript. Imperfect,
+  // but strictly better than the verbatim dump.
+  const sanitizeRawTranscriptFallback = (text: string): string => {
+    if (!text) return text;
+    const cleaned = text
+      .replace(/\b(lunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bado|domingo)\s+\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{2,4}\b/gi, '')
+      .replace(/\b\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{2,4}\b/gi, '')
+      .replace(/\bla referencia es\s+[\wáéíóúñ.\-]+/gi, '')
+      .replace(/\bref(?:erencia)?[:\s]+[A-Z0-9\-]{4,}/gi, '')
+      .replace(/\b(?:el\s+)?cliente(?:\s+es)?\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?/g, '')
+      .replace(/\best[aá]mos en la direcci[oó]n[^.]*\./gi, '.')
+      .replace(/\b(?:en la )?direcci[oó]n\s+[^,.]+(?:,\s*(?:n[uú]mero|n[ºo])\s*\d+)?(?:,\s*piso\s*\d+\s*[A-Za-z]?)?/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([,.;])/g, '$1')
+      .replace(/^\s*[,.;]\s*/, '')
+      .trim();
+    return cleaned || text; // never return empty — a messy raw text beats a blank paragraph
+  };
+
   const wrapImagesInEditor = (html: string): string => {
     const imgRegex = /<img\s+src="data:image\/(jpeg|png);base64,([^"]+)"\s*\/?>/gi;
     let idx = 0;
@@ -815,7 +838,7 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
           '$2$1'
         );
 
-      const textForIntro = cleanIntroText(quote.introTecnica || quote.text || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
+      const textForIntro = cleanIntroText(quote.introTecnica || (quote.text ? sanitizeRawTranscriptFallback(quote.text) : '') || "las aves se posaban y anidaban activamente en las zonas elevadas, provocando acumulación de suciedad y daños estructurales");
       const textForProblem = cleanProblemText(quote.problemaPrincipal || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
       const textForDetail = quote.detalleAdicional || "las bajantes de agua pluvial estaban obstruidas por nidos y plumas";
       const finalRefCode = quote.refCode || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
@@ -1011,9 +1034,9 @@ export default function DocumentEditor({ quote, onSaveQuote, onCancel, templates
     }
   }, [editorHtml]);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, durationMs: number = 3000) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), durationMs);
   };
 
   // Rich Text Formatting helpers
@@ -1418,7 +1441,7 @@ Transcripción:
               const finalLlmKey = userLlmKey || userKey;
               const isLlmGroq = finalLlmKey.startsWith('gsk_');
               const llmUrl = isLlmGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-              const llmModel = isLlmGroq ? 'llama-3.3-70b-versatile' : 'meta-llama/llama-3.3-70b-instruct';
+              const llmModel = isLlmGroq ? 'openai/gpt-oss-120b' : 'meta-llama/llama-3.3-70b-instruct';
 
               const llmRes = await fetch(llmUrl, {
                 method: 'POST',
@@ -1664,7 +1687,7 @@ Transcripción:
           const finalRefCode = (ai && ai.refCode) || refCodeInput || (quote.id.startsWith('q-new') ? 'Ref-ALC-[RELLENAR]' : quote.id);
           setRefCodeInput(finalRefCode);
 
-          const textForIntro = cleanIntroText((ai && ai.introTecnica) || data.text);
+          const textForIntro = cleanIntroText((ai && ai.introTecnica) || sanitizeRawTranscriptFallback(data.text));
           const textForProblem = cleanProblemText((ai && ai.problemaPrincipal) || "es la acumulación de excrementos y el consiguiente deterioro estético e higiénico.");
           const textForDetail = (ai && ai.detalleAdicional) || "se observaron nidos construidos y obstrucciones en los conductos.";
 
@@ -1715,9 +1738,17 @@ Transcripción:
  
            setTimeout(() => {
              setIsProcessingVideo(false);
-             showToast('¡Presupuesto rellenado con éxito desde el audio!');
+             // ai is null whenever the LLM structuring step failed or wasn't available (no key,
+             // rate limit, bad response, etc.) — the diagnosis/propuesta técnica text then falls
+             // back to a best-effort cleanup of the raw dictation instead of a proper rewrite, so
+             // flag it clearly instead of silently presenting it as finished.
+             if (!ai) {
+               showToast('⚠️ La IA no pudo redactar el texto — revisa y corrige el Diagnóstico y la Propuesta Técnica antes de enviar.', 8000);
+             } else {
+               showToast('¡Presupuesto rellenado con éxito desde el audio!');
+             }
            }, 300);
- 
+
     } catch (err: any) {
       console.error('Video auto-fill failed:', err);
       setVideoProgress(100);
